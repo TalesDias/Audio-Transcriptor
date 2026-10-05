@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Transcritor
+Comment=Transcreva áudios e reuniões com identificação de falantes
+Exec=@BIN@
+Icon=transcritor
+Terminal=false
+Categories=AudioVideo;Audio;Office;

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Transcritor</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px 48px; font: 15px/1.5 system-ui, sans-serif; color: #222; background: #fafafa; }
+  main { max-width: 900px; margin: 0 auto; }
+  h1 { margin: 0 0 20px; font-size: 24px; }
+  h2 { margin: 0 0 12px; font-size: 16px; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 16px 18px; margin-bottom: 24px; }
+  form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: end; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #555; }
+  input[type=text], input[type=number] { padding: 6px 8px; border: 1px solid #bbb; border-radius: 4px; font: inherit; }
+  .full { grid-column: 1 / -1; }
+  button, .btn { padding: 7px 14px; border: 1px solid #3a6ff7; background: #3a6ff7; color: #fff; border-radius: 4px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+  button.secondary { background: #fff; color: #a33; border-color: #d99; }
+  button:disabled { opacity: .5; cursor: default; }
+  progress { width: 100%; height: 10px; }
+  .msg { font-size: 13px; color: #555; }
+  .msg.err { color: #a00; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  th { font-size: 12px; color: #777; font-weight: 600; text-transform: uppercase; }
+  td.actions { text-align: right; white-space: nowrap; }
+  td.actions > * { margin-left: 6px; }
+  .status { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #eee; white-space: nowrap; }
+  .status.done { background: #dff3e1; color: #1d6b2a; }
+  .status.error { background: #fbe1e1; color: #a00; }
+  .status.pending { background: #fff1c2; color: #7a5a00; }
+  .empty { color: #888; padding: 12px 0; }
+  .table-wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Transcritor</h1>
+
+  <section class="card">
+    <h2>Nova transcrição</h2>
+    <form id="form">
+      <label class="full">Arquivo de áudio ou vídeo
+        <input type="file" id="file" accept="audio/*,video/*" required>
+      </label>
+      <label>Título (opcional)
+        <input type="text" id="title" placeholder="Nome do arquivo">
+      </label>
+      <label>Número de falantes (opcional)
+        <input type="number" id="speakers" min="1" max="30" placeholder="Detectar">
+      </label>
+      <label class="full">Termos importantes, separados por vírgula (opcional)
+        <input type="text" id="keyterms" placeholder="Ex.: Carl Rogers, Um Jeito de Ser">
+      </label>
+      <div class="full">
+        <button type="submit" id="submit">Transcrever</button>
+      </div>
+      <div class="full" id="progressWrap" hidden>
+        <progress id="progress" max="1" value="0"></progress>
+      </div>
+      <div class="full msg" id="formMsg"></div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Transcrições</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Título</th><th>Data</th><th>Duração</th><th>Status</th><th></th></tr></thead>
+        <tbody id="list"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="empty" hidden>Nenhuma transcrição ainda.</div>
+  </section>
+</main>
+
+<script>
+const STATUS = {
+  uploading: ["Enviando para a AssemblyAI…", "pending"],
+  processing: ["Transcrevendo…", "pending"],
+  done: ["Pronto", "done"],
+  error: ["Erro", "error"],
+};
+
+const fmtDur = s => {
+  if (!s) return "—";
+  s = Math.round(s);
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+  return h ? `${h}h${String(m).padStart(2, "0")}` : `${m}:${String(sec).padStart(2, "0")}`;
+};
+const fmtDate = iso => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+
+let pollTimer = null;
+
+async function refresh() {
+  const items = await fetch("/api/transcripts").then(r => r.json());
+  const tbody = document.getElementById("list");
+  tbody.replaceChildren();
+  document.getElementById("empty").hidden = items.length > 0;
+
+  for (const it of items) {
+    const tr = document.createElement("tr");
+    const [label, cls] = STATUS[it.status] || [it.status, ""];
+
+    const title = document.createElement("td");
+    if (it.status === "done") {
+      const a = document.createElement("a");
+      a.href = `/view/${it.id}`;
+      a.textContent = it.title;
+      title.append(a);
+    } else {
+      title.textContent = it.title;
+    }
+
+    const status = document.createElement("td");
+    const badge = document.createElement("span");
+    badge.className = `status ${cls}`;
+    badge.textContent = label;
+    if (it.status === "error") badge.title = it.error || "";
+    status.append(badge);
+
+    const actions = document.createElement("td");
+    actions.className = "actions";
+    if (it.status === "done") {
+      const open = document.createElement("a");
+      open.className = "btn";
+      open.href = `/view/${it.id}`;
+      open.textContent = "Abrir";
+      actions.append(open);
+    }
+    const del = document.createElement("button");
+    del.className = "secondary";
+    del.textContent = "Excluir";
+    del.addEventListener("click", async () => {
+      if (!confirm(`Excluir "${it.title}"? O áudio e a transcrição serão apagados.`)) return;
+      await fetch(`/api/transcripts/${it.id}`, { method: "DELETE" });
+      refresh();
+    });
+    actions.append(del);
+
+    const date = document.createElement("td");
+    date.textContent = fmtDate(it.created);
+    const dur = document.createElement("td");
+    dur.textContent = fmtDur(it.duration);
+
+    tr.append(title, date, dur, status, actions);
+    tbody.append(tr);
+  }
+
+  clearTimeout(pollTimer);
+  if (items.some(it => it.status === "uploading" || it.status === "processing")) {
+    pollTimer = setTimeout(refresh, 3000);
+  }
+}
+
+document.getElementById("form").addEventListener("submit", e => {
+  e.preventDefault();
+  const file = document.getElementById("file").files[0];
+  if (!file) return;
+  const params = new URLSearchParams({
+    title: document.getElementById("title").value,
+    speakers: document.getElementById("speakers").value,
+    keyterms: document.getElementById("keyterms").value,
+  });
+  const submit = document.getElementById("submit");
+  const msg = document.getElementById("formMsg");
+  const progress = document.getElementById("progress");
+  const wrap = document.getElementById("progressWrap");
+
+  submit.disabled = true;
+  wrap.hidden = false;
+  msg.className = "full msg";
+  msg.textContent = "Carregando arquivo…";
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", `/api/transcripts?${params}`);
+  xhr.setRequestHeader("X-Filename", encodeURIComponent(file.name));
+  xhr.upload.onprogress = ev => { if (ev.lengthComputable) progress.value = ev.loaded / ev.total; };
+  xhr.onload = () => {
+    submit.disabled = false;
+    wrap.hidden = true;
+    if (xhr.status === 201) {
+      msg.textContent = "Arquivo recebido. A transcrição continua mesmo se você fechar esta página.";
+      e.target.reset();
+    } else {
+      msg.className = "full msg err";
+      msg.textContent = "Falha ao enviar: " + (JSON.parse(xhr.responseText || "{}").error || xhr.status);
+    }
+    refresh();
+  };
+  xhr.onerror = () => {
+    submit.disabled = false;
+    wrap.hidden = true;
+    msg.className = "full msg err";
+    msg.textContent = "Falha ao enviar o arquivo. O Transcritor ainda está aberto?";
+  };
+  xhr.send(file);
+});
+
+// Keep the local server alive while this page is open
+setInterval(() => fetch("/api/ping").catch(() => {}), 30000);
+fetch("/api/ping");
+refresh();
+</script>
+</body>
+</html>
