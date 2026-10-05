@@ -6,7 +6,7 @@ import threading
 import assemblyai as aai
 
 from . import store
-from .config import ASSEMBLYAI_API_KEY, LANGUAGE, SPEECH_MODELS
+from .config import ASSEMBLYAI_API_KEY, SPEECH_MODELS
 
 aai.settings.api_key = ASSEMBLYAI_API_KEY
 
@@ -58,15 +58,16 @@ def _run(item_id: str):
             transcript = aai.Transcript.get_by_id(meta["assemblyai_id"])
         else:
             store.update_meta(item_id, status="uploading")
+            language = meta.get("language") or None
             config = aai.TranscriptionConfig(
                 speech_models=SPEECH_MODELS,
-                language_code=LANGUAGE,
                 punctuate=True,
                 # Keep spoken numbers as words ("um jeito", not "1 jeito")
                 format_text=False,
                 speaker_labels=True,
                 speakers_expected=meta.get("speakers_expected") or None,
                 keyterms_prompt=meta.get("keyterms") or None,
+                **({"language_code": language} if language else {"language_detection": True}),
             )
             transcript = aai.Transcriber(config=config).submit(str(store.audio_path(item_id)))
             store.update_meta(item_id, status="processing", assemblyai_id=transcript.id)

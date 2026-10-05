@@ -116,6 +116,7 @@ class Handler(BaseHTTPRequestHandler):
         title = (query.get("title") or [""])[0].strip() or Path(filename).stem
         speakers = (query.get("speakers") or [""])[0].strip()
         keyterms = [t.strip() for t in (query.get("keyterms") or [""])[0].split(",") if t.strip()]
+        language = (query.get("language") or [""])[0].strip()
 
         item_id = store.new_id()
         audio_file = "audio" + (Path(filename).suffix.lower() or ".bin")
@@ -127,6 +128,7 @@ class Handler(BaseHTTPRequestHandler):
             "status": "uploading",
             "speakers_expected": int(speakers) if speakers.isdigit() else None,
             "keyterms": keyterms,
+            "language": language,
             "speaker_names": {},
         })
         with (store.item_dir(item_id) / audio_file).open("wb") as out:

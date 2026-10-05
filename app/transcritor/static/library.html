@@ -46,6 +46,7 @@
   }
   main { max-width: 860px; margin: 0 auto; }
 
+  .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
   .wave { display: flex; align-items: flex-end; gap: 3px; height: 22px; flex-shrink: 0; }
   .wave span { width: 3px; border-radius: 1px; background: var(--accent); }
@@ -57,17 +58,26 @@
   h1 { margin: 0; font-family: var(--font-serif); font-weight: 600; font-size: 28px; letter-spacing: -.01em; }
   .tagline { margin: 6px 0 36px; color: var(--ink-soft); font-size: 14px; max-width: 46em; }
 
+  .segmented { display: inline-flex; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; flex-shrink: 0; }
+  .segmented button {
+    border: none; border-right: 1px solid var(--rule); background: var(--surface); color: var(--ink-soft);
+    font: 500 12px var(--font-sans); padding: 5px 9px; cursor: pointer;
+  }
+  .segmented button:last-child { border-right: none; }
+  .segmented button.on { background: var(--accent); color: var(--accent-ink); }
+
   h2 { margin: 0 0 20px; font-family: var(--font-serif); font-weight: 600; font-size: 18px; }
   section + section { margin-top: 48px; }
   .slip { border-top: 3px solid var(--accent); padding-top: 22px; }
 
   form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px 16px; align-items: end; }
   label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-soft); }
-  input[type=text], input[type=number], input[type=file] {
+  input[type=text], input[type=number], input[type=file], select {
     font: inherit; font-family: var(--font-sans); color: var(--ink);
     background: transparent; border: none; border-bottom: 1px solid var(--rule);
     padding: 7px 2px; border-radius: 0;
   }
+  select { background-color: var(--bg); }
   input[type=file]::file-selector-button {
     font: 500 13px var(--font-sans); color: var(--accent); background: transparent;
     border: 1px solid var(--rule); border-radius: var(--radius); padding: 5px 10px; margin-right: 10px;
@@ -128,30 +138,55 @@
 </head>
 <body>
 <main>
-  <div class="brand">
-    <div class="wave"><span></span><span></span><span></span><span></span><span></span></div>
-    <h1>Transcritor</h1>
+  <div class="topbar">
+    <div>
+      <div class="brand">
+        <div class="wave"><span></span><span></span><span></span><span></span><span></span></div>
+        <h1>Transcritor</h1>
+      </div>
+      <p class="tagline" data-i18n="tagline"></p>
+    </div>
+    <div class="segmented" id="langsw">
+      <button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button>
+    </div>
   </div>
-  <p class="tagline">Transcreva áudios e reuniões com identificação de quem fala, revisando o texto junto com o áudio.</p>
 
   <section>
     <div class="slip">
-      <h2>Nova transcrição</h2>
+      <h2 data-i18n="newTranscription"></h2>
       <form id="form">
-        <label class="full">Arquivo de áudio ou vídeo
+        <label class="full" data-i18n="fileLabel">
           <input type="file" id="file" accept="audio/*,video/*" required>
         </label>
-        <label>Título (opcional)
-          <input type="text" id="title" placeholder="Nome do arquivo">
+        <label data-i18n="titleLabel">
+          <input type="text" id="title" data-i18n-placeholder="titlePlaceholder">
         </label>
-        <label>Número de falantes (opcional)
-          <input type="number" id="speakers" min="1" max="30" placeholder="Detectar">
+        <label data-i18n="speakersLabel">
+          <input type="number" id="speakers" min="1" max="30" data-i18n-placeholder="speakersPlaceholder">
         </label>
-        <label class="full">Termos importantes, separados por vírgula (opcional)
-          <input type="text" id="keyterms" placeholder="Ex.: Carl Rogers, Um Jeito de Ser">
+        <label data-i18n="languageLabel">
+          <select id="language">
+            <option value="" data-i18n="languageAuto"></option>
+            <option value="pt">Português</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="it">Italiano</option>
+            <option value="nl">Nederlands</option>
+            <option value="ru">Русский</option>
+            <option value="ja">日本語</option>
+            <option value="zh">中文</option>
+            <option value="ko">한국어</option>
+            <option value="hi">हिन्दी</option>
+            <option value="ar">العربية</option>
+          </select>
+        </label>
+        <label class="full" data-i18n="keytermsLabel">
+          <input type="text" id="keyterms" data-i18n-placeholder="keytermsPlaceholder">
         </label>
         <div class="full">
-          <button type="submit" id="submit">Transcrever</button>
+          <button type="submit" id="submit" data-i18n="submit"></button>
         </div>
         <div class="full" id="progressWrap" hidden>
           <progress id="progress" max="1" value="0"></progress>
@@ -162,26 +197,146 @@
   </section>
 
   <section>
-    <h2>Transcrições</h2>
+    <h2 data-i18n="transcriptionsHeading"></h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Título</th><th>Data</th><th>Duração</th><th>Status</th><th></th></tr></thead>
+        <thead><tr>
+          <th data-i18n="colTitle"></th><th data-i18n="colDate"></th><th data-i18n="colDuration"></th><th data-i18n="colStatus"></th><th></th>
+        </tr></thead>
         <tbody id="list"></tbody>
       </table>
     </div>
     <div class="empty" id="empty" hidden>
-      <p>Nenhuma transcrição ainda.</p>
-      <small>Envie um áudio acima para começar.</small>
+      <p data-i18n="emptyTitle"></p>
+      <small data-i18n="emptyHint"></small>
     </div>
   </section>
 </main>
 
 <script>
-const STATUS = {
-  uploading: ["Enviando para a AssemblyAI…", "pending"],
-  processing: ["Transcrevendo…", "pending"],
-  done: ["Pronto", "done"],
-  error: ["Erro", "error"],
+const I18N = {
+  pt: {
+    tagline: "Transcreva áudios e reuniões com identificação de quem fala, revisando o texto junto com o áudio.",
+    newTranscription: "Nova transcrição",
+    fileLabel: "Arquivo de áudio ou vídeo",
+    titleLabel: "Título (opcional)",
+    titlePlaceholder: "Nome do arquivo",
+    speakersLabel: "Número de falantes (opcional)",
+    speakersPlaceholder: "Detectar",
+    languageLabel: "Idioma do áudio (opcional)",
+    languageAuto: "Detectar automaticamente",
+    keytermsLabel: "Termos importantes, separados por vírgula (opcional)",
+    keytermsPlaceholder: "Ex.: Carl Rogers, Um Jeito de Ser",
+    submit: "Transcrever",
+    msgUploading: "Carregando arquivo…",
+    msgReceived: "Arquivo recebido. A transcrição continua mesmo se você fechar esta página.",
+    msgSendFailed: "Falha ao enviar: ",
+    msgSendError: "Falha ao enviar o arquivo. O Transcritor ainda está aberto?",
+    transcriptionsHeading: "Transcrições",
+    colTitle: "Título", colDate: "Data", colDuration: "Duração", colStatus: "Status",
+    statusUploading: "Enviando para a AssemblyAI…",
+    statusProcessing: "Transcrevendo…",
+    statusDone: "Pronto",
+    statusError: "Erro",
+    actionOpen: "Abrir",
+    actionDelete: "Excluir",
+    confirmDelete: title => `Excluir "${title}"? O áudio e a transcrição serão apagados.`,
+    emptyTitle: "Nenhuma transcrição ainda.",
+    emptyHint: "Envie um áudio acima para começar.",
+  },
+  en: {
+    tagline: "Transcribe audio and meetings with speaker identification, reviewing the text alongside the audio.",
+    newTranscription: "New transcription",
+    fileLabel: "Audio or video file",
+    titleLabel: "Title (optional)",
+    titlePlaceholder: "File name",
+    speakersLabel: "Number of speakers (optional)",
+    speakersPlaceholder: "Detect",
+    languageLabel: "Audio language (optional)",
+    languageAuto: "Detect automatically",
+    keytermsLabel: "Important terms, comma-separated (optional)",
+    keytermsPlaceholder: "E.g.: Carl Rogers, A Way of Being",
+    submit: "Transcribe",
+    msgUploading: "Uploading file…",
+    msgReceived: "File received. The transcription continues even if you close this page.",
+    msgSendFailed: "Failed to upload: ",
+    msgSendError: "Failed to upload the file. Is Transcritor still open?",
+    transcriptionsHeading: "Transcriptions",
+    colTitle: "Title", colDate: "Date", colDuration: "Duration", colStatus: "Status",
+    statusUploading: "Uploading to AssemblyAI…",
+    statusProcessing: "Transcribing…",
+    statusDone: "Done",
+    statusError: "Error",
+    actionOpen: "Open",
+    actionDelete: "Delete",
+    confirmDelete: title => `Delete "${title}"? The audio and transcript will be removed.`,
+    emptyTitle: "No transcriptions yet.",
+    emptyHint: "Upload an audio file above to get started.",
+  },
+  es: {
+    tagline: "Transcribe audios y reuniones con identificación de quién habla, revisando el texto junto con el audio.",
+    newTranscription: "Nueva transcripción",
+    fileLabel: "Archivo de audio o video",
+    titleLabel: "Título (opcional)",
+    titlePlaceholder: "Nombre del archivo",
+    speakersLabel: "Número de hablantes (opcional)",
+    speakersPlaceholder: "Detectar",
+    languageLabel: "Idioma del audio (opcional)",
+    languageAuto: "Detectar automáticamente",
+    keytermsLabel: "Términos importantes, separados por coma (opcional)",
+    keytermsPlaceholder: "Ej.: Carl Rogers, El Proceso de Convertirse en Persona",
+    submit: "Transcribir",
+    msgUploading: "Subiendo archivo…",
+    msgReceived: "Archivo recibido. La transcripción continúa aunque cierres esta página.",
+    msgSendFailed: "Error al subir: ",
+    msgSendError: "No se pudo subir el archivo. ¿Transcritor sigue abierto?",
+    transcriptionsHeading: "Transcripciones",
+    colTitle: "Título", colDate: "Fecha", colDuration: "Duración", colStatus: "Estado",
+    statusUploading: "Enviando a AssemblyAI…",
+    statusProcessing: "Transcribiendo…",
+    statusDone: "Listo",
+    statusError: "Error",
+    actionOpen: "Abrir",
+    actionDelete: "Eliminar",
+    confirmDelete: title => `¿Eliminar "${title}"? El audio y la transcripción se borrarán.`,
+    emptyTitle: "Aún no hay transcripciones.",
+    emptyHint: "Sube un audio arriba para comenzar.",
+  },
+};
+
+function detectLang() {
+  try {
+    const saved = localStorage.getItem("transcritor-ui-lang");
+    if (saved && I18N[saved]) return saved;
+  } catch {}
+  const nav = (navigator.language || "pt").slice(0, 2);
+  return I18N[nav] ? nav : "pt";
+}
+
+let uiLang = detectLang();
+const t = key => I18N[uiLang][key];
+
+function applyI18n() {
+  document.documentElement.lang = uiLang === "pt" ? "pt-BR" : uiLang;
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  document.querySelectorAll("#langsw button").forEach(b => b.classList.toggle("on", b.dataset.lang === uiLang));
+}
+
+document.getElementById("langsw").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-lang]");
+  if (!btn) return;
+  uiLang = btn.dataset.lang;
+  try { localStorage.setItem("transcritor-ui-lang", uiLang); } catch {}
+  applyI18n();
+  refresh();
+});
+
+const STATUS_KEY = {
+  uploading: ["statusUploading", "pending"],
+  processing: ["statusProcessing", "pending"],
+  done: ["statusDone", "done"],
+  error: ["statusError", "error"],
 };
 
 const fmtDur = s => {
@@ -190,7 +345,7 @@ const fmtDur = s => {
   const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
   return h ? `${h}h${String(m).padStart(2, "0")}` : `${m}:${String(sec).padStart(2, "0")}`;
 };
-const fmtDate = iso => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+const fmtDate = iso => new Date(iso).toLocaleString(uiLang, { dateStyle: "short", timeStyle: "short" });
 
 let pollTimer = null;
 
@@ -202,7 +357,8 @@ async function refresh() {
 
   for (const it of items) {
     const tr = document.createElement("tr");
-    const [label, cls] = STATUS[it.status] || [it.status, ""];
+    const [labelKey, cls] = STATUS_KEY[it.status] || [null, ""];
+    const label = labelKey ? t(labelKey) : it.status;
 
     const title = document.createElement("td");
     title.className = "title";
@@ -232,14 +388,14 @@ async function refresh() {
       const open = document.createElement("a");
       open.className = "open";
       open.href = `/view/${it.id}`;
-      open.textContent = "Abrir";
+      open.textContent = t("actionOpen");
       actions.append(open);
     }
     const del = document.createElement("button");
     del.className = "secondary";
-    del.textContent = "Excluir";
+    del.textContent = t("actionDelete");
     del.addEventListener("click", async () => {
-      if (!confirm(`Excluir "${it.title}"? O áudio e a transcrição serão apagados.`)) return;
+      if (!confirm(t("confirmDelete")(it.title))) return;
       await fetch(`/api/transcripts/${it.id}`, { method: "DELETE" });
       refresh();
     });
@@ -260,14 +416,22 @@ async function refresh() {
   }
 }
 
+const LANG_FIELD = document.getElementById("language");
+try {
+  const savedLang = localStorage.getItem("transcritor-audio-lang");
+  if (savedLang) LANG_FIELD.value = savedLang;
+} catch {}
+
 document.getElementById("form").addEventListener("submit", e => {
   e.preventDefault();
   const file = document.getElementById("file").files[0];
   if (!file) return;
+  try { localStorage.setItem("transcritor-audio-lang", LANG_FIELD.value); } catch {}
   const params = new URLSearchParams({
     title: document.getElementById("title").value,
     speakers: document.getElementById("speakers").value,
     keyterms: document.getElementById("keyterms").value,
+    language: LANG_FIELD.value,
   });
   const submit = document.getElementById("submit");
   const msg = document.getElementById("formMsg");
@@ -277,7 +441,7 @@ document.getElementById("form").addEventListener("submit", e => {
   submit.disabled = true;
   wrap.hidden = false;
   msg.className = "full msg";
-  msg.textContent = "Carregando arquivo…";
+  msg.textContent = t("msgUploading");
 
   const xhr = new XMLHttpRequest();
   xhr.open("POST", `/api/transcripts?${params}`);
@@ -287,11 +451,16 @@ document.getElementById("form").addEventListener("submit", e => {
     submit.disabled = false;
     wrap.hidden = true;
     if (xhr.status === 201) {
-      msg.textContent = "Arquivo recebido. A transcrição continua mesmo se você fechar esta página.";
+      msg.textContent = t("msgReceived");
       e.target.reset();
+      LANG_FIELD.value = "";
+      try {
+        const savedLang = localStorage.getItem("transcritor-audio-lang");
+        if (savedLang) LANG_FIELD.value = savedLang;
+      } catch {}
     } else {
       msg.className = "full msg err";
-      msg.textContent = "Falha ao enviar: " + (JSON.parse(xhr.responseText || "{}").error || xhr.status);
+      msg.textContent = t("msgSendFailed") + (JSON.parse(xhr.responseText || "{}").error || xhr.status);
     }
     refresh();
   };
@@ -299,10 +468,12 @@ document.getElementById("form").addEventListener("submit", e => {
     submit.disabled = false;
     wrap.hidden = true;
     msg.className = "full msg err";
-    msg.textContent = "Falha ao enviar o arquivo. O Transcritor ainda está aberto?";
+    msg.textContent = t("msgSendError");
   };
   xhr.send(file);
 });
+
+applyI18n();
 
 // Keep the local server alive while this page is open
 setInterval(() => fetch("/api/ping").catch(() => {}), 30000);

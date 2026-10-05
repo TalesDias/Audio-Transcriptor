@@ -13,7 +13,6 @@ if not ASSEMBLYAI_API_KEY:
         "ASSEMBLYAI_API_KEY não definida. Crie um arquivo .env na raiz do "
         "projeto (veja .env.example) com ASSEMBLYAI_API_KEY=sua_chave."
     )
-LANGUAGE = "pt"
 SPEECH_MODELS = ["universal-3-5-pro", "universal-2"]
 
 XDG_DATA_HOME = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")

@@ -64,6 +64,14 @@
   }
   .exports a:hover { border-color: var(--accent); color: var(--accent); }
 
+  .segmented { display: inline-flex; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; flex-shrink: 0; }
+  .segmented button {
+    border: none; border-right: 1px solid var(--rule); background: var(--surface); color: var(--ink-soft);
+    font: 500 12px var(--font-sans); padding: 5px 9px; cursor: pointer;
+  }
+  .segmented button:last-child { border-right: none; }
+  .segmented button.on { background: var(--accent); color: var(--accent-ink); }
+
   #bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 0 6px; }
   #play {
     width: 42px; height: 42px; border-radius: 50%; border: none; flex-shrink: 0;
@@ -117,23 +125,27 @@
 </head>
 <body>
 <header>
-  <a class="back" href="/">← Transcrições</a>
-  <h1 id="title" title="Clique para renomear">…</h1>
-  <span class="exports">Exportar
-    <a id="exp-docx" href="#">Word</a><a id="exp-txt" href="#">Texto</a><a id="exp-srt" href="#">Legenda</a>
+  <a class="back" href="/" id="backLink"></a>
+  <h1 id="title">…</h1>
+  <span class="exports">
+    <span id="exportsLabel"></span>
+    <a id="exp-docx" href="#">Word</a><a id="exp-txt" href="#"></a><a id="exp-srt" href="#"></a>
   </span>
+  <div class="segmented" id="langsw">
+    <button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button>
+  </div>
 </header>
 <div id="bar">
-  <button id="play" title="Tocar/pausar (Espaço)">▶</button>
+  <button id="play">▶</button>
   <input id="seek" type="range" min="0" max="0" step="0.01" value="0">
   <span id="time">0:00 / 0:00</span>
   <span id="speeds"></span>
   <span id="status"></span>
 </div>
 <div class="legend">
-  <span><kbd>Espaço</kbd> tocar/pausar</span>
-  <span><kbd>←</kbd><kbd>→</kbd> avançar 3s</span>
-  <span>Clique no nome de um falante para renomeá-lo</span>
+  <span><kbd id="keySpace">Espaço</kbd> <span id="shortcutPlayPause"></span></span>
+  <span><kbd>←</kbd><kbd>→</kbd> <span id="shortcutSkip"></span></span>
+  <span id="shortcutRename"></span>
 </div>
 <div class="box" id="box"></div>
 <audio id="audio" preload="auto"></audio>
@@ -143,6 +155,102 @@ const ID = location.pathname.split("/").pop();
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 const SKIP = 3;
 const COLORS = ["#3f6fb0", "#b0553f", "#6b8f4f", "#8d5fa8", "#b08a2e", "#4f8fa6", "#a64f77", "#5f6b8d"];
+
+const I18N = {
+  pt: {
+    backLink: "← Transcrições",
+    titleTooltip: "Clique para renomear",
+    playTooltip: "Tocar/pausar (Espaço)",
+    keySpace: "Espaço",
+    renamePromptTitle: "Novo título:",
+    exportsLabel: "Exportar",
+    exportWord: "Word",
+    exportText: "Texto",
+    exportSrt: "Legenda",
+    shortcutPlayPause: "tocar/pausar",
+    shortcutSkip: "avançar 3s",
+    shortcutRename: "Clique no nome de um falante para renomeá-lo",
+    renamePromptSpeaker: name => `Novo nome para "${name}":`,
+    errAudio: "Este navegador não conseguiu tocar o áudio.",
+    errNotFound: "Transcrição não encontrada.",
+    errNotReady: "A transcrição ainda não está pronta.",
+    speakerFallback: n => `Falante ${n}`,
+  },
+  en: {
+    backLink: "← Transcriptions",
+    titleTooltip: "Click to rename",
+    playTooltip: "Play/pause (Space)",
+    keySpace: "Space",
+    renamePromptTitle: "New title:",
+    exportsLabel: "Export",
+    exportWord: "Word",
+    exportText: "Text",
+    exportSrt: "Subtitles",
+    shortcutPlayPause: "play/pause",
+    shortcutSkip: "skip 3s",
+    shortcutRename: "Click a speaker's name to rename them",
+    renamePromptSpeaker: name => `New name for "${name}":`,
+    errAudio: "This browser couldn't play the audio.",
+    errNotFound: "Transcription not found.",
+    errNotReady: "The transcription isn't ready yet.",
+    speakerFallback: n => `Speaker ${n}`,
+  },
+  es: {
+    backLink: "← Transcripciones",
+    titleTooltip: "Haz clic para renombrar",
+    playTooltip: "Reproducir/pausar (Espacio)",
+    keySpace: "Espacio",
+    renamePromptTitle: "Nuevo título:",
+    exportsLabel: "Exportar",
+    exportWord: "Word",
+    exportText: "Texto",
+    exportSrt: "Subtítulos",
+    shortcutPlayPause: "reproducir/pausar",
+    shortcutSkip: "avanzar 3s",
+    shortcutRename: "Haz clic en el nombre de un hablante para renombrarlo",
+    renamePromptSpeaker: name => `Nuevo nombre para "${name}":`,
+    errAudio: "Este navegador no pudo reproducir el audio.",
+    errNotFound: "Transcripción no encontrada.",
+    errNotReady: "La transcripción aún no está lista.",
+    speakerFallback: n => `Hablante ${n}`,
+  },
+};
+
+function detectLang() {
+  try {
+    const saved = localStorage.getItem("transcritor-ui-lang");
+    if (saved && I18N[saved]) return saved;
+  } catch {}
+  const nav = (navigator.language || "pt").slice(0, 2);
+  return I18N[nav] ? nav : "pt";
+}
+
+let uiLang = detectLang();
+const t = key => I18N[uiLang][key];
+
+function applyChrome() {
+  document.documentElement.lang = uiLang === "pt" ? "pt-BR" : uiLang;
+  document.getElementById("backLink").textContent = t("backLink");
+  titleEl.title = t("titleTooltip");
+  playBtn.title = t("playTooltip");
+  document.getElementById("keySpace").textContent = t("keySpace");
+  document.getElementById("exportsLabel").textContent = t("exportsLabel");
+  document.getElementById("exp-txt").textContent = t("exportText");
+  document.getElementById("exp-srt").textContent = t("exportSrt");
+  document.getElementById("shortcutPlayPause").textContent = t("shortcutPlayPause");
+  document.getElementById("shortcutSkip").textContent = t("shortcutSkip");
+  document.getElementById("shortcutRename").textContent = t("shortcutRename");
+  document.querySelectorAll("#langsw button").forEach(b => b.classList.toggle("on", b.dataset.lang === uiLang));
+}
+
+document.getElementById("langsw").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-lang]");
+  if (!btn) return;
+  uiLang = btn.dataset.lang;
+  try { localStorage.setItem("transcritor-ui-lang", uiLang); } catch {}
+  applyChrome();
+  renderTags();
+});
 
 const audio = document.getElementById("audio");
 const seek = document.getElementById("seek");
@@ -161,7 +269,7 @@ const fmt = s => {
   const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = String(s % 60).padStart(2, "0");
   return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 };
-const speakerName = sp => meta.speaker_names?.[sp] || `Falante ${sp}`;
+const speakerName = sp => meta.speaker_names?.[sp] || t("speakerFallback")(sp);
 
 // Last index whose start <= t, or -1
 function findIndex(items, t) {
@@ -196,7 +304,7 @@ function render(transcript) {
     const nameEl = document.createElement("span");
     nameEl.className = "speaker-name";
     nameEl.addEventListener("click", async () => {
-      const name = prompt(`Novo nome para "${speakerName(turn.speaker)}":`, meta.speaker_names?.[turn.speaker] || "");
+      const name = prompt(t("renamePromptSpeaker")(speakerName(turn.speaker)), meta.speaker_names?.[turn.speaker] || "");
       if (name === null) return;
       await save({ speaker_names: { ...meta.speaker_names, [turn.speaker]: name } });
       renderTags();
@@ -267,7 +375,7 @@ audio.addEventListener("pause", () => { playBtn.textContent = "▶"; update(); }
 audio.addEventListener("seeked", update);
 audio.addEventListener("timeupdate", () => { if (audio.paused) update(); });
 audio.addEventListener("loadedmetadata", () => { seek.max = audio.duration; update(); });
-audio.addEventListener("error", () => { statusEl.textContent = "Este navegador não conseguiu tocar o áudio."; });
+audio.addEventListener("error", () => { statusEl.textContent = t("errAudio"); });
 
 playBtn.addEventListener("click", () => { togglePlay(); playBtn.blur(); });
 seek.addEventListener("input", () => { dragging = true; audio.currentTime = +seek.value; setSeekFill(); });
@@ -294,7 +402,7 @@ document.addEventListener("keydown", e => {
 });
 
 titleEl.addEventListener("click", async () => {
-  const title = prompt("Novo título:", meta.title);
+  const title = prompt(t("renamePromptTitle"), meta.title);
   if (!title || !title.trim()) return;
   await save({ title });
   titleEl.textContent = document.title = meta.title;
@@ -302,18 +410,19 @@ titleEl.addEventListener("click", async () => {
 
 async function load() {
   const r = await fetch(`/api/transcripts/${ID}`);
-  if (!r.ok) { statusEl.textContent = "Transcrição não encontrada."; return; }
+  if (!r.ok) { statusEl.textContent = t("errNotFound"); return; }
   const data = await r.json();
   meta = data;
   titleEl.textContent = document.title = meta.title;
   for (const fmtName of ["docx", "txt", "srt"]) {
     document.getElementById(`exp-${fmtName}`).href = `/api/transcripts/${ID}/export.${fmtName}`;
   }
-  if (!data.transcript) { statusEl.textContent = "A transcrição ainda não está pronta."; return; }
+  if (!data.transcript) { statusEl.textContent = t("errNotReady"); return; }
   render(data.transcript);
   audio.src = `/api/transcripts/${ID}/audio`;
 }
 
+applyChrome();
 setInterval(() => fetch("/api/ping").catch(() => {}), 30000);
 fetch("/api/ping");
 load();
