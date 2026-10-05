@@ -2,15 +2,40 @@
 the AssemblyAI transcript id is stored and polling resumes on next launch."""
 
 import threading
+import urllib.error
+import urllib.request
 
 import assemblyai as aai
 
+from . import config as appconfig
 from . import store
-from .config import ASSEMBLYAI_API_KEY, SPEECH_MODELS
+from .config import SPEECH_MODELS
 
-aai.settings.api_key = ASSEMBLYAI_API_KEY
+aai.settings.api_key = appconfig.ASSEMBLYAI_API_KEY
 
 SENTENCE_END = (".", "?", "!", "…")
+
+
+def validate_api_key(key: str) -> str | None:
+    """Pings the AssemblyAI API with the given key. Returns None if it works,
+    otherwise a user-facing error message."""
+    req = urllib.request.Request(
+        "https://api.assemblyai.com/v2/transcript?limit=1", headers={"authorization": key}
+    )
+    try:
+        urllib.request.urlopen(req, timeout=10)
+        return None
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return "Chave da AssemblyAI inválida."
+        return f"A AssemblyAI respondeu com erro ({e.code})."
+    except urllib.error.URLError as e:
+        return f"Não foi possível conectar à AssemblyAI: {e.reason}"
+
+
+def set_api_key(key: str) -> None:
+    appconfig.save_api_key(key)
+    aai.settings.api_key = key
 
 _active: set[str] = set()
 _active_lock = threading.Lock()
@@ -53,6 +78,9 @@ def resume_pending():
 
 def _run(item_id: str):
     try:
+        if not aai.settings.api_key:
+            store.update_meta(item_id, status="error", error="Chave da AssemblyAI não configurada.")
+            return
         meta = store.read_meta(item_id)
         if meta.get("assemblyai_id"):
             transcript = aai.Transcript.get_by_id(meta["assemblyai_id"])

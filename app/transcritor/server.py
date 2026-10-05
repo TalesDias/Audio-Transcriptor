@@ -8,7 +8,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import export, store, transcribe
+from . import config, export, store, transcribe
 from .config import APP_NAME
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -88,6 +88,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._static("viewer.html")
         if path == "/api/transcripts":
             return self._json(store.list_items())
+        if path == "/api/settings":
+            return self._json({"has_api_key": bool(config.ASSEMBLYAI_API_KEY)})
 
         item_id = self._item_id(path)
         if item_id is None:
@@ -105,8 +107,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path, query = self._route()
+        if path == "/api/settings":
+            return self._save_api_key()
         if path != "/api/transcripts":
             return self._error(404, "Não encontrado")
+        if not config.ASSEMBLYAI_API_KEY:
+            return self._error(400, "Configure sua chave da AssemblyAI antes de transcrever.")
 
         filename = Path(urllib.parse.unquote(self.headers.get("X-Filename") or "audio")).name
         length = int(self.headers.get("Content-Length") or 0)
@@ -168,6 +174,16 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"ok": True})
 
     # --- responses ---------------------------------------------------------
+
+    def _save_api_key(self):
+        key = str(self._read_json().get("assemblyai_api_key") or "").strip()
+        if not key:
+            return self._error(400, "Informe uma chave.")
+        error = transcribe.validate_api_key(key)
+        if error:
+            return self._error(400, error)
+        transcribe.set_api_key(key)
+        self._json({"ok": True})
 
     def _static(self, name: str):
         self._send(200, (STATIC_DIR / name).read_bytes(), "text/html; charset=utf-8")
