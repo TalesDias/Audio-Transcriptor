@@ -80,6 +80,7 @@
   }
   .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
   .icon-btn svg { width: 16px; height: 16px; }
+  .globe-icon { width: 16px; height: 16px; color: var(--ink-soft); flex-shrink: 0; }
   .banner {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     border: 1px solid var(--amber); border-radius: var(--radius); padding: 10px 14px;
@@ -138,16 +139,14 @@
   }
   button.secondary:hover { color: var(--error); text-decoration: underline; }
 
-  .status { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; white-space: nowrap; }
-  .status .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+  .status-icon { width: 14px; height: 14px; flex-shrink: 0; }
   .status.done { color: var(--accent); }
-  .status.done .dot { background: var(--accent); }
   .status.error { color: var(--error); }
-  .status.error .dot { background: var(--error); }
   .status.pending { color: var(--amber); }
-  .status.pending .dot { background: var(--amber); animation: pulse 1.6s ease-in-out infinite; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-  @media (prefers-reduced-motion: reduce) { .status.pending .dot { animation: none; } }
+  .status.pending .status-icon { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .status.pending .status-icon { animation: none; } }
 
   .empty { padding: 28px 0 8px; }
   .empty p { margin: 0; font-family: var(--font-serif); font-style: italic; color: var(--ink-soft); font-size: 16px; }
@@ -171,6 +170,7 @@
       <a class="icon-btn" href="/settings" id="settingsLink">
         <i data-lucide="settings" aria-hidden="true"></i>
       </a>
+      <i data-lucide="globe" class="globe-icon" aria-hidden="true"></i>
       <div class="segmented" id="langsw">
         <button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button>
       </div>
@@ -391,10 +391,10 @@ async function checkSettings() {
 }
 
 const STATUS_KEY = {
-  uploading: ["statusUploading", "pending"],
-  processing: ["statusProcessing", "pending"],
-  done: ["statusDone", "done"],
-  error: ["statusError", "error"],
+  uploading: ["statusUploading", "pending", "loader-circle"],
+  processing: ["statusProcessing", "pending", "loader-circle"],
+  done: ["statusDone", "done", "check"],
+  error: ["statusError", "error", "circle-alert"],
 };
 
 const fmtDur = s => {
@@ -415,7 +415,7 @@ async function refresh() {
 
   for (const it of items) {
     const tr = document.createElement("tr");
-    const [labelKey, cls] = STATUS_KEY[it.status] || [null, ""];
+    const [labelKey, cls, iconName] = STATUS_KEY[it.status] || [null, "", "circle-alert"];
     const label = labelKey ? t(labelKey) : it.status;
 
     const title = document.createElement("td");
@@ -434,9 +434,11 @@ async function refresh() {
     const status = document.createElement("td");
     const badge = document.createElement("span");
     badge.className = `status ${cls}`;
-    const dot = document.createElement("span");
-    dot.className = "dot";
-    badge.append(dot, document.createTextNode(label));
+    const icon = document.createElement("i");
+    icon.className = "status-icon";
+    icon.setAttribute("data-lucide", iconName);
+    icon.setAttribute("aria-hidden", "true");
+    badge.append(icon, document.createTextNode(label));
     if (it.status === "error") badge.title = it.error || "";
     status.append(badge);
 
@@ -467,6 +469,7 @@ async function refresh() {
     tr.append(title, date, dur, status, actions);
     tbody.append(tr);
   }
+  lucide.createIcons();
 
   clearTimeout(pollTimer);
   if (items.some(it => it.status === "uploading" || it.status === "processing")) {

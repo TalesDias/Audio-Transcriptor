@@ -60,10 +60,12 @@
   #title:hover { border-bottom-color: var(--ink-soft); }
   .exports { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-soft); }
   .exports a {
+    display: inline-flex; align-items: center; gap: 5px;
     padding: 4px 10px; border: 1px solid var(--rule); border-radius: var(--radius);
     color: var(--ink); text-decoration: none; font-size: 13px;
   }
   .exports a:hover { border-color: var(--accent); color: var(--accent); }
+  .exports a svg { width: 13px; height: 13px; }
 
   .segmented { display: inline-flex; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; flex-shrink: 0; }
   .segmented button {
@@ -72,6 +74,7 @@
   }
   .segmented button:last-child { border-right: none; }
   .segmented button.on { background: var(--accent); color: var(--accent-ink); }
+  .globe-icon { width: 16px; height: 16px; color: var(--ink-soft); flex-shrink: 0; }
 
   #bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 0 6px; }
   #play {
@@ -80,6 +83,7 @@
     display: flex; align-items: center; justify-content: center;
   }
   #play:hover { filter: brightness(1.08); }
+  #play svg { width: 17px; height: 17px; }
   #seek {
     flex: 1; min-width: 200px; height: 4px; -webkit-appearance: none; appearance: none;
     background: transparent; cursor: pointer;
@@ -130,14 +134,18 @@
   <h1 id="title">…</h1>
   <span class="exports">
     <span id="exportsLabel"></span>
-    <a id="exp-docx" href="#">Word</a><a id="exp-txt" href="#"></a><a id="exp-srt" href="#"></a>
+    <a id="exp-docx" href="#"><i data-lucide="file-text" aria-hidden="true"></i> Word</a><a id="exp-txt" href="#"><i data-lucide="file" aria-hidden="true"></i> <span id="exp-txt-label"></span></a><a id="exp-srt" href="#"><i data-lucide="captions" aria-hidden="true"></i> <span id="exp-srt-label"></span></a>
   </span>
+  <i data-lucide="globe" class="globe-icon" aria-hidden="true"></i>
   <div class="segmented" id="langsw">
     <button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button>
   </div>
 </header>
 <div id="bar">
-  <button id="play">▶</button>
+  <button id="play">
+    <i data-lucide="play" id="playIcon" aria-hidden="true"></i>
+    <i data-lucide="pause" id="pauseIcon" aria-hidden="true" hidden></i>
+  </button>
   <input id="seek" type="range" min="0" max="0" step="0.01" value="0">
   <span id="time">0:00 / 0:00</span>
   <span id="speeds"></span>
@@ -151,6 +159,7 @@
 <div class="box" id="box"></div>
 <audio id="audio" preload="auto"></audio>
 
+<script src="https://cdn.jsdelivr.net/npm/lucide@1.52.0/dist/umd/lucide.js"></script>
 <script>
 const ID = location.pathname.split("/").pop();
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
@@ -236,8 +245,8 @@ function applyChrome() {
   playBtn.title = t("playTooltip");
   document.getElementById("keySpace").textContent = t("keySpace");
   document.getElementById("exportsLabel").textContent = t("exportsLabel");
-  document.getElementById("exp-txt").textContent = t("exportText");
-  document.getElementById("exp-srt").textContent = t("exportSrt");
+  document.getElementById("exp-txt-label").textContent = t("exportText");
+  document.getElementById("exp-srt-label").textContent = t("exportSrt");
   document.getElementById("shortcutPlayPause").textContent = t("shortcutPlayPause");
   document.getElementById("shortcutSkip").textContent = t("shortcutSkip");
   document.getElementById("shortcutRename").textContent = t("shortcutRename");
@@ -371,8 +380,9 @@ function loop() {
 function togglePlay() { audio.paused ? audio.play() : audio.pause(); }
 function skip(d) { audio.currentTime = Math.min(Math.max(audio.currentTime + d, 0), audio.duration || 0); }
 
-audio.addEventListener("play", () => { playBtn.textContent = "❚❚"; requestAnimationFrame(loop); });
-audio.addEventListener("pause", () => { playBtn.textContent = "▶"; update(); });
+function showIcon(toShow, toHide) { toShow.removeAttribute("hidden"); toHide.setAttribute("hidden", ""); }
+audio.addEventListener("play", () => { showIcon(pauseIcon, playIcon); requestAnimationFrame(loop); });
+audio.addEventListener("pause", () => { showIcon(playIcon, pauseIcon); update(); });
 audio.addEventListener("seeked", update);
 audio.addEventListener("timeupdate", () => { if (audio.paused) update(); });
 audio.addEventListener("loadedmetadata", () => { seek.max = audio.duration; update(); });
@@ -424,6 +434,11 @@ async function load() {
 }
 
 applyChrome();
+lucide.createIcons();
+// lucide.createIcons() replaces each <i data-lucide> placeholder with a new
+// <svg> node, so these can only be resolved correctly after it has run.
+const playIcon = document.getElementById("playIcon");
+const pauseIcon = document.getElementById("pauseIcon");
 setInterval(() => fetch("/api/ping").catch(() => {}), 30000);
 fetch("/api/ping");
 load();

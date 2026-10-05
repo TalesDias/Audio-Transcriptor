@@ -57,6 +57,8 @@
   }
   .segmented button:last-child { border-right: none; }
   .segmented button.on { background: var(--accent); color: var(--accent-ink); }
+  .topbar-controls { display: flex; align-items: center; gap: 10px; }
+  .globe-icon { width: 16px; height: 16px; color: var(--ink-soft); flex-shrink: 0; }
 
   h2 { margin: 0 0 20px; font-family: var(--font-serif); font-weight: 600; font-size: 18px; }
   .slip { border-top: 3px solid var(--accent); padding-top: 22px; }
@@ -111,8 +113,11 @@
 <main>
   <header>
     <a class="back" href="/" id="backLink"></a>
-    <div class="segmented" id="langsw">
-      <button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button>
+    <div class="topbar-controls">
+      <i data-lucide="globe" class="globe-icon" aria-hidden="true"></i>
+      <div class="segmented" id="langsw">
+        <button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button>
+      </div>
     </div>
   </header>
 
