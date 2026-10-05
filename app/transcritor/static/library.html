@@ -29,7 +29,7 @@
       --surface: #1b2023;
       --ink: #e9e6db;
       --ink-soft: #9b9890;
-      --rule: #2a3033;
+      --rule: #5c666b;
       --accent: #57b39f;
       --accent-ink: #0d1512;
       --amber: #d9a24b;
@@ -77,7 +77,7 @@
     border: 1px solid var(--amber); border-radius: var(--radius); padding: 10px 14px;
     font-size: 13px; color: var(--amber); margin-bottom: 24px;
   }
-  .banner button { flex-shrink: 0; }
+  .banner a { flex-shrink: 0; }
 
   h2 { margin: 0 0 20px; font-family: var(--font-serif); font-weight: 600; font-size: 18px; }
   section + section { margin-top: 48px; }
@@ -160,7 +160,7 @@
       <p class="tagline" data-i18n="tagline"></p>
     </div>
     <div class="topbar-controls">
-      <button type="button" class="linklike" id="settingsToggle" data-i18n="settingsToggle"></button>
+      <a class="linklike" href="/settings" data-i18n="settingsToggle"></a>
       <div class="segmented" id="langsw">
         <button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button>
       </div>
@@ -169,41 +169,27 @@
 
   <div class="banner" id="keyBanner" hidden>
     <span data-i18n="apiKeyMissing"></span>
-    <button type="button" class="linklike" id="keyBannerLink" data-i18n="apiKeySetUp"></button>
+    <a class="linklike" href="/settings" data-i18n="apiKeySetUp"></a>
   </div>
-
-  <section id="settingsSection" hidden>
-    <div class="slip">
-      <h2 data-i18n="apiKeyTitle"></h2>
-      <p class="msg">
-        <span data-i18n="apiKeyHint"></span> <a href="https://www.assemblyai.com" target="_blank" rel="noopener">assemblyai.com</a>
-      </p>
-      <form id="apiKeyForm">
-        <label class="full" data-i18n="apiKeyLabel">
-          <input type="password" id="apiKeyInput" autocomplete="off" data-i18n-placeholder="apiKeyPlaceholder">
-        </label>
-        <div class="full">
-          <button type="submit" id="apiKeySubmit" data-i18n="apiKeySave"></button>
-        </div>
-        <div class="full msg" id="apiKeyMsg"></div>
-      </form>
-    </div>
-  </section>
 
   <section>
     <div class="slip">
       <h2 data-i18n="newTranscription"></h2>
       <form id="form">
-        <label class="full" data-i18n="fileLabel">
+        <label class="full">
+          <span data-i18n="fileLabel"></span>
           <input type="file" id="file" accept="audio/*,video/*" required>
         </label>
-        <label data-i18n="titleLabel">
+        <label>
+          <span data-i18n="titleLabel"></span>
           <input type="text" id="title" data-i18n-placeholder="titlePlaceholder">
         </label>
-        <label data-i18n="speakersLabel">
+        <label>
+          <span data-i18n="speakersLabel"></span>
           <input type="number" id="speakers" min="1" max="30" data-i18n-placeholder="speakersPlaceholder">
         </label>
-        <label data-i18n="languageLabel">
+        <label>
+          <span data-i18n="languageLabel"></span>
           <select id="language">
             <option value="" data-i18n="languageAuto"></option>
             <option value="pt">Português</option>
@@ -221,7 +207,8 @@
             <option value="ar">العربية</option>
           </select>
         </label>
-        <label class="full" data-i18n="keytermsLabel">
+        <label class="full">
+          <span data-i18n="keytermsLabel"></span>
           <input type="text" id="keyterms" data-i18n-placeholder="keytermsPlaceholder">
         </label>
         <div class="full">
@@ -259,13 +246,6 @@ const I18N = {
     settingsToggle: "Chave de API",
     apiKeyMissing: "Configure sua chave da AssemblyAI para começar a transcrever.",
     apiKeySetUp: "Configurar",
-    apiKeyTitle: "Chave de API da AssemblyAI",
-    apiKeyHint: "Crie uma conta gratuita e pegue sua chave em",
-    apiKeyLabel: "Chave",
-    apiKeyPlaceholder: "Cole sua chave aqui",
-    apiKeySave: "Salvar chave",
-    apiKeySaving: "Verificando…",
-    apiKeySuccess: "Chave salva. Já pode transcrever.",
     newTranscription: "Nova transcrição",
     fileLabel: "Arquivo de áudio ou vídeo",
     titleLabel: "Título (opcional)",
@@ -298,13 +278,6 @@ const I18N = {
     settingsToggle: "API key",
     apiKeyMissing: "Set up your AssemblyAI key to start transcribing.",
     apiKeySetUp: "Set up",
-    apiKeyTitle: "AssemblyAI API key",
-    apiKeyHint: "Create a free account and grab your key at",
-    apiKeyLabel: "Key",
-    apiKeyPlaceholder: "Paste your key here",
-    apiKeySave: "Save key",
-    apiKeySaving: "Checking…",
-    apiKeySuccess: "Key saved. You're ready to transcribe.",
     newTranscription: "New transcription",
     fileLabel: "Audio or video file",
     titleLabel: "Title (optional)",
@@ -337,13 +310,6 @@ const I18N = {
     settingsToggle: "Clave de API",
     apiKeyMissing: "Configura tu clave de AssemblyAI para empezar a transcribir.",
     apiKeySetUp: "Configurar",
-    apiKeyTitle: "Clave de API de AssemblyAI",
-    apiKeyHint: "Crea una cuenta gratuita y obtén tu clave en",
-    apiKeyLabel: "Clave",
-    apiKeyPlaceholder: "Pega tu clave aquí",
-    apiKeySave: "Guardar clave",
-    apiKeySaving: "Verificando…",
-    apiKeySuccess: "Clave guardada. Ya puedes transcribir.",
     newTranscription: "Nueva transcripción",
     fileLabel: "Archivo de audio o video",
     titleLabel: "Título (opcional)",
@@ -403,59 +369,12 @@ document.getElementById("langsw").addEventListener("click", e => {
 
 let hasApiKey = false;
 
-function applyApiKeyState() {
-  document.getElementById("keyBanner").hidden = hasApiKey;
-  document.getElementById("submit").disabled = !hasApiKey;
-  if (!hasApiKey) document.getElementById("settingsSection").hidden = false;
-}
-
 async function checkSettings() {
   const data = await fetch("/api/settings").then(r => r.json());
   hasApiKey = !!data.has_api_key;
-  applyApiKeyState();
+  document.getElementById("keyBanner").hidden = hasApiKey;
+  document.getElementById("submit").disabled = !hasApiKey;
 }
-
-function toggleSettings() {
-  const sec = document.getElementById("settingsSection");
-  sec.hidden = !sec.hidden;
-  if (!sec.hidden) document.getElementById("apiKeyInput").focus();
-}
-
-document.getElementById("settingsToggle").addEventListener("click", toggleSettings);
-document.getElementById("keyBannerLink").addEventListener("click", toggleSettings);
-
-document.getElementById("apiKeyForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  const input = document.getElementById("apiKeyInput");
-  const btn = document.getElementById("apiKeySubmit");
-  const msg = document.getElementById("apiKeyMsg");
-  const key = input.value.trim();
-  if (!key) return;
-
-  btn.disabled = true;
-  msg.className = "full msg";
-  msg.textContent = t("apiKeySaving");
-  try {
-    const r = await fetch("/api/settings", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assemblyai_api_key: key }),
-    });
-    const data = await r.json();
-    if (r.ok) {
-      msg.className = "full msg";
-      msg.textContent = t("apiKeySuccess");
-      input.value = "";
-      await checkSettings();
-    } else {
-      msg.className = "full msg err";
-      msg.textContent = data.error || String(r.status);
-    }
-  } catch {
-    msg.className = "full msg err";
-    msg.textContent = t("msgSendError");
-  } finally {
-    btn.disabled = false;
-  }
-});
 
 const STATUS_KEY = {
   uploading: ["statusUploading", "pending"],

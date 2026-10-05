@@ -84,6 +84,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"app": APP_NAME})
         if path in ("/", "/index.html"):
             return self._static("library.html")
+        if path == "/settings":
+            return self._static("settings.html")
         if re.match(r"^/view/[^/]+$", path):
             return self._static("viewer.html")
         if path == "/api/transcripts":

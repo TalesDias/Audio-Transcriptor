@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>Transcritor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #efebe1;
+    --surface: #f7f4ec;
+    --ink: #211f19;
+    --ink-soft: #655e4e;
+    --rule: #d9d2c0;
+    --accent: #2b6d60;
+    --accent-ink: #fff;
+    --amber: #9c6b1f;
+    --error: #8f3a2e;
+    --radius: 3px;
+    --font-serif: "Newsreader", Georgia, "Times New Roman", serif;
+    --font-sans: "Archivo", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14181a;
+      --surface: #1b2023;
+      --ink: #e9e6db;
+      --ink-soft: #9b9890;
+      --rule: #5c666b;
+      --accent: #57b39f;
+      --accent-ink: #0d1512;
+      --amber: #d9a24b;
+      --error: #d9776a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 20px 64px;
+    font: 15px/1.6 var(--font-sans);
+    color: var(--ink); background: var(--bg);
+    transition: background .2s ease, color .2s ease;
+  }
+  main { max-width: 640px; margin: 0 auto; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 32px; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 14px; font-weight: 500; }
+  a.back:hover { text-decoration: underline; }
+
+  .segmented { display: inline-flex; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; flex-shrink: 0; }
+  .segmented button {
+    border: none; border-right: 1px solid var(--rule); background: var(--surface); color: var(--ink-soft);
+    font: 500 12px var(--font-sans); padding: 5px 9px; cursor: pointer;
+  }
+  .segmented button:last-child { border-right: none; }
+  .segmented button.on { background: var(--accent); color: var(--accent-ink); }
+
+  h2 { margin: 0 0 20px; font-family: var(--font-serif); font-weight: 600; font-size: 18px; }
+  .slip { border-top: 3px solid var(--accent); padding-top: 22px; }
+
+  form { display: grid; gap: 18px 16px; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-soft); }
+  input[type=password] {
+    font: inherit; font-family: var(--font-sans); color: var(--ink);
+    background: transparent; border: none; border-bottom: 1px solid var(--rule);
+    padding: 7px 2px; border-radius: 0;
+  }
+  button, a { font-family: var(--font-sans); }
+  button[type=submit] {
+    font: 600 14px var(--font-sans); padding: 10px 20px; border: none; border-radius: var(--radius);
+    background: var(--accent); color: var(--accent-ink); cursor: pointer; justify-self: start;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .msg { font-size: 13px; color: var(--ink-soft); min-height: 1.4em; }
+  .msg.err { color: var(--error); }
+  .msg.ok { color: var(--accent); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <a class="back" href="/" id="backLink"></a>
+    <div class="segmented" id="langsw">
+      <button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button>
+    </div>
+  </header>
+
+  <div class="slip">
+    <h2 data-i18n="apiKeyTitle"></h2>
+    <p class="msg">
+      <span data-i18n="apiKeyHint"></span> <a href="https://www.assemblyai.com" target="_blank" rel="noopener">assemblyai.com</a>
+    </p>
+    <form id="apiKeyForm">
+      <label>
+        <span data-i18n="apiKeyLabel"></span>
+        <input type="password" id="apiKeyInput" autocomplete="off" data-i18n-placeholder="apiKeyPlaceholder">
+      </label>
+      <div>
+        <button type="submit" id="apiKeySubmit" data-i18n="apiKeySave"></button>
+      </div>
+      <div class="msg" id="apiKeyMsg"></div>
+    </form>
+  </div>
+</main>
+
+<script>
+const I18N = {
+  pt: {
+    backLink: "← Transcrições",
+    apiKeyTitle: "Chave de API da AssemblyAI",
+    apiKeyHint: "Crie uma conta gratuita e pegue sua chave em",
+    apiKeyLabel: "Chave",
+    apiKeyPlaceholder: "Cole sua chave aqui",
+    apiKeySave: "Salvar chave",
+    apiKeySaving: "Verificando…",
+    apiKeySuccess: "Chave salva. Já pode transcrever.",
+    msgSendError: "Falha ao enviar. O Transcritor ainda está aberto?",
+  },
+  en: {
+    backLink: "← Transcriptions",
+    apiKeyTitle: "AssemblyAI API key",
+    apiKeyHint: "Create a free account and grab your key at",
+    apiKeyLabel: "Key",
+    apiKeyPlaceholder: "Paste your key here",
+    apiKeySave: "Save key",
+    apiKeySaving: "Checking…",
+    apiKeySuccess: "Key saved. You're ready to transcribe.",
+    msgSendError: "Failed to send. Is Transcritor still open?",
+  },
+  es: {
+    backLink: "← Transcripciones",
+    apiKeyTitle: "Clave de API de AssemblyAI",
+    apiKeyHint: "Crea una cuenta gratuita y obtén tu clave en",
+    apiKeyLabel: "Clave",
+    apiKeyPlaceholder: "Pega tu clave aquí",
+    apiKeySave: "Guardar clave",
+    apiKeySaving: "Verificando…",
+    apiKeySuccess: "Clave guardada. Ya puedes transcribir.",
+    msgSendError: "No se pudo enviar. ¿Transcritor sigue abierto?",
+  },
+};
+
+function detectLang() {
+  try {
+    const saved = localStorage.getItem("transcritor-ui-lang");
+    if (saved && I18N[saved]) return saved;
+  } catch {}
+  const nav = (navigator.language || "pt").slice(0, 2);
+  return I18N[nav] ? nav : "pt";
+}
+
+let uiLang = detectLang();
+const t = key => I18N[uiLang][key];
+
+function applyI18n() {
+  document.documentElement.lang = uiLang === "pt" ? "pt-BR" : uiLang;
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  document.getElementById("backLink").textContent = t("backLink");
+  document.querySelectorAll("#langsw button").forEach(b => b.classList.toggle("on", b.dataset.lang === uiLang));
+}
+
+document.getElementById("langsw").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-lang]");
+  if (!btn) return;
+  uiLang = btn.dataset.lang;
+  try { localStorage.setItem("transcritor-ui-lang", uiLang); } catch {}
+  applyI18n();
+});
+
+document.getElementById("apiKeyForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const input = document.getElementById("apiKeyInput");
+  const btn = document.getElementById("apiKeySubmit");
+  const msg = document.getElementById("apiKeyMsg");
+  const key = input.value.trim();
+  if (!key) return;
+
+  btn.disabled = true;
+  msg.className = "msg";
+  msg.textContent = t("apiKeySaving");
+  try {
+    const r = await fetch("/api/settings", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assemblyai_api_key: key }),
+    });
+    const data = await r.json();
+    if (r.ok) {
+      msg.className = "msg ok";
+      msg.textContent = t("apiKeySuccess");
+      input.value = "";
+    } else {
+      msg.className = "msg err";
+      msg.textContent = data.error || String(r.status);
+    }
+  } catch {
+    msg.className = "msg err";
+    msg.textContent = t("msgSendError");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+applyI18n();
+</script>
+</body>
+</html>
