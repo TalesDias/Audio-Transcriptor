@@ -2,67 +2,166 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
 <title>Transcritor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --bg: #efebe1;
+    --surface: #f7f4ec;
+    --ink: #211f19;
+    --ink-soft: #655e4e;
+    --rule: #d9d2c0;
+    --accent: #2b6d60;
+    --accent-ink: #fff;
+    --amber: #9c6b1f;
+    --error: #8f3a2e;
+    --row-hover: rgba(43, 109, 96, .07);
+    --radius: 3px;
+    --font-serif: "Newsreader", Georgia, "Times New Roman", serif;
+    --font-sans: "Archivo", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14181a;
+      --surface: #1b2023;
+      --ink: #e9e6db;
+      --ink-soft: #9b9890;
+      --rule: #2a3033;
+      --accent: #57b39f;
+      --accent-ink: #0d1512;
+      --amber: #d9a24b;
+      --error: #d9776a;
+      --row-hover: rgba(87, 179, 159, .12);
+    }
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 24px 16px 48px; font: 15px/1.5 system-ui, sans-serif; color: #222; background: #fafafa; }
-  main { max-width: 900px; margin: 0 auto; }
-  h1 { margin: 0 0 20px; font-size: 24px; }
-  h2 { margin: 0 0 12px; font-size: 16px; }
-  .card { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 16px 18px; margin-bottom: 24px; }
-  form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: end; }
-  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #555; }
-  input[type=text], input[type=number] { padding: 6px 8px; border: 1px solid #bbb; border-radius: 4px; font: inherit; }
+  body {
+    margin: 0; padding: 40px 20px 64px;
+    font: 15px/1.6 var(--font-sans);
+    color: var(--ink); background: var(--bg);
+    transition: background .2s ease, color .2s ease;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .wave { display: flex; align-items: flex-end; gap: 3px; height: 22px; flex-shrink: 0; }
+  .wave span { width: 3px; border-radius: 1px; background: var(--accent); }
+  .wave span:nth-child(1) { height: 35%; }
+  .wave span:nth-child(2) { height: 90%; }
+  .wave span:nth-child(3) { height: 55%; }
+  .wave span:nth-child(4) { height: 100%; }
+  .wave span:nth-child(5) { height: 60%; }
+  h1 { margin: 0; font-family: var(--font-serif); font-weight: 600; font-size: 28px; letter-spacing: -.01em; }
+  .tagline { margin: 6px 0 36px; color: var(--ink-soft); font-size: 14px; max-width: 46em; }
+
+  h2 { margin: 0 0 20px; font-family: var(--font-serif); font-weight: 600; font-size: 18px; }
+  section + section { margin-top: 48px; }
+  .slip { border-top: 3px solid var(--accent); padding-top: 22px; }
+
+  form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px 16px; align-items: end; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-soft); }
+  input[type=text], input[type=number], input[type=file] {
+    font: inherit; font-family: var(--font-sans); color: var(--ink);
+    background: transparent; border: none; border-bottom: 1px solid var(--rule);
+    padding: 7px 2px; border-radius: 0;
+  }
+  input[type=file]::file-selector-button {
+    font: 500 13px var(--font-sans); color: var(--accent); background: transparent;
+    border: 1px solid var(--rule); border-radius: var(--radius); padding: 5px 10px; margin-right: 10px;
+    cursor: pointer;
+  }
+  input[type=file]::file-selector-button:hover { border-color: var(--accent); }
   .full { grid-column: 1 / -1; }
-  button, .btn { padding: 7px 14px; border: 1px solid #3a6ff7; background: #3a6ff7; color: #fff; border-radius: 4px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
-  button.secondary { background: #fff; color: #a33; border-color: #d99; }
+  button, a { font-family: var(--font-sans); }
+  button[type=submit] {
+    font: 600 14px var(--font-sans); padding: 10px 20px; border: none; border-radius: var(--radius);
+    background: var(--accent); color: var(--accent-ink); cursor: pointer;
+  }
   button:disabled { opacity: .5; cursor: default; }
-  progress { width: 100%; height: 10px; }
-  .msg { font-size: 13px; color: #555; }
-  .msg.err { color: #a00; }
+  progress { width: 100%; height: 6px; border: none; border-radius: 3px; background: var(--rule); overflow: hidden; }
+  progress::-webkit-progress-bar { background: var(--rule); }
+  progress::-webkit-progress-value { background: var(--accent); }
+  progress::-moz-progress-bar { background: var(--accent); }
+  .msg { font-size: 13px; color: var(--ink-soft); min-height: 1.4em; }
+  .msg.err { color: var(--error); }
+
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eee; vertical-align: middle; }
-  th { font-size: 12px; color: #777; font-weight: 600; text-transform: uppercase; }
+  thead th {
+    text-align: left; font: 500 12px var(--font-sans); color: var(--ink-soft);
+    padding: 0 8px 10px; border-bottom: 1px solid var(--rule);
+  }
+  tbody td { padding: 14px 8px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+  tbody tr:hover td { background: var(--row-hover); }
+  td.title a, td.title span { font-family: var(--font-serif); font-size: 15.5px; color: var(--ink); }
+  td.title a { text-decoration: none; border-bottom: 1px solid transparent; }
+  td.title a:hover { border-bottom-color: var(--accent); }
   td.actions { text-align: right; white-space: nowrap; }
-  td.actions > * { margin-left: 6px; }
-  .status { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #eee; white-space: nowrap; }
-  .status.done { background: #dff3e1; color: #1d6b2a; }
-  .status.error { background: #fbe1e1; color: #a00; }
-  .status.pending { background: #fff1c2; color: #7a5a00; }
-  .empty { color: #888; padding: 12px 0; }
+  td.actions a.open { color: var(--accent); text-decoration: none; font-weight: 500; margin-right: 16px; }
+  td.actions a.open:hover { text-decoration: underline; }
+  button.secondary {
+    background: none; border: none; color: var(--ink-soft); font: inherit; font-size: 13px;
+    cursor: pointer; padding: 0;
+  }
+  button.secondary:hover { color: var(--error); text-decoration: underline; }
+
+  .status { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; white-space: nowrap; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status.done { color: var(--accent); }
+  .status.done .dot { background: var(--accent); }
+  .status.error { color: var(--error); }
+  .status.error .dot { background: var(--error); }
+  .status.pending { color: var(--amber); }
+  .status.pending .dot { background: var(--amber); animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .status.pending .dot { animation: none; } }
+
+  .empty { padding: 28px 0 8px; }
+  .empty p { margin: 0; font-family: var(--font-serif); font-style: italic; color: var(--ink-soft); font-size: 16px; }
+  .empty small { display: block; margin-top: 4px; color: var(--ink-soft); font-size: 13px; }
   .table-wrap { overflow-x: auto; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Transcritor</h1>
+  <div class="brand">
+    <div class="wave"><span></span><span></span><span></span><span></span><span></span></div>
+    <h1>Transcritor</h1>
+  </div>
+  <p class="tagline">Transcreva áudios e reuniões com identificação de quem fala, revisando o texto junto com o áudio.</p>
 
-  <section class="card">
-    <h2>Nova transcrição</h2>
-    <form id="form">
-      <label class="full">Arquivo de áudio ou vídeo
-        <input type="file" id="file" accept="audio/*,video/*" required>
-      </label>
-      <label>Título (opcional)
-        <input type="text" id="title" placeholder="Nome do arquivo">
-      </label>
-      <label>Número de falantes (opcional)
-        <input type="number" id="speakers" min="1" max="30" placeholder="Detectar">
-      </label>
-      <label class="full">Termos importantes, separados por vírgula (opcional)
-        <input type="text" id="keyterms" placeholder="Ex.: Carl Rogers, Um Jeito de Ser">
-      </label>
-      <div class="full">
-        <button type="submit" id="submit">Transcrever</button>
-      </div>
-      <div class="full" id="progressWrap" hidden>
-        <progress id="progress" max="1" value="0"></progress>
-      </div>
-      <div class="full msg" id="formMsg"></div>
-    </form>
+  <section>
+    <div class="slip">
+      <h2>Nova transcrição</h2>
+      <form id="form">
+        <label class="full">Arquivo de áudio ou vídeo
+          <input type="file" id="file" accept="audio/*,video/*" required>
+        </label>
+        <label>Título (opcional)
+          <input type="text" id="title" placeholder="Nome do arquivo">
+        </label>
+        <label>Número de falantes (opcional)
+          <input type="number" id="speakers" min="1" max="30" placeholder="Detectar">
+        </label>
+        <label class="full">Termos importantes, separados por vírgula (opcional)
+          <input type="text" id="keyterms" placeholder="Ex.: Carl Rogers, Um Jeito de Ser">
+        </label>
+        <div class="full">
+          <button type="submit" id="submit">Transcrever</button>
+        </div>
+        <div class="full" id="progressWrap" hidden>
+          <progress id="progress" max="1" value="0"></progress>
+        </div>
+        <div class="full msg" id="formMsg"></div>
+      </form>
+    </div>
   </section>
 
-  <section class="card">
+  <section>
     <h2>Transcrições</h2>
     <div class="table-wrap">
       <table>
@@ -70,7 +169,10 @@
         <tbody id="list"></tbody>
       </table>
     </div>
-    <div class="empty" id="empty" hidden>Nenhuma transcrição ainda.</div>
+    <div class="empty" id="empty" hidden>
+      <p>Nenhuma transcrição ainda.</p>
+      <small>Envie um áudio acima para começar.</small>
+    </div>
   </section>
 </main>
 
@@ -103,19 +205,24 @@ async function refresh() {
     const [label, cls] = STATUS[it.status] || [it.status, ""];
 
     const title = document.createElement("td");
+    title.className = "title";
     if (it.status === "done") {
       const a = document.createElement("a");
       a.href = `/view/${it.id}`;
       a.textContent = it.title;
       title.append(a);
     } else {
-      title.textContent = it.title;
+      const span = document.createElement("span");
+      span.textContent = it.title;
+      title.append(span);
     }
 
     const status = document.createElement("td");
     const badge = document.createElement("span");
     badge.className = `status ${cls}`;
-    badge.textContent = label;
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    badge.append(dot, document.createTextNode(label));
     if (it.status === "error") badge.title = it.error || "";
     status.append(badge);
 
@@ -123,7 +230,7 @@ async function refresh() {
     actions.className = "actions";
     if (it.status === "done") {
       const open = document.createElement("a");
-      open.className = "btn";
+      open.className = "open";
       open.href = `/view/${it.id}`;
       open.textContent = "Abrir";
       actions.append(open);
