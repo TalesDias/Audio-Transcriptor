@@ -37,6 +37,12 @@ def set_api_key(key: str) -> None:
     appconfig.save_api_key(key)
     aai.settings.api_key = key
 
+
+def clear_api_key() -> None:
+    appconfig.clear_api_key()
+    aai.settings.api_key = appconfig.ASSEMBLYAI_API_KEY
+
+
 _active: set[str] = set()
 _active_lock = threading.Lock()
 

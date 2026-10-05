@@ -91,7 +91,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/transcripts":
             return self._json(store.list_items())
         if path == "/api/settings":
-            return self._json({"has_api_key": bool(config.ASSEMBLYAI_API_KEY)})
+            return self._json({
+                "has_api_key": bool(config.ASSEMBLYAI_API_KEY),
+                "key_saved_at": config.api_key_saved_at(),
+            })
 
         item_id = self._item_id(path)
         if item_id is None:
@@ -169,6 +172,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         path, _ = self._route()
+        if path == "/api/settings":
+            transcribe.clear_api_key()
+            return self._json({"ok": True})
         item_id = self._item_id(path)
         if item_id is None or path != f"/api/transcripts/{item_id}":
             return self._error(404, "Não encontrado")

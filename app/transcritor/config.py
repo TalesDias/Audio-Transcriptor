@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -31,8 +32,23 @@ def save_api_key(key: str) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     cfg = _read_user_config()
     cfg["assemblyai_api_key"] = key
+    cfg["api_key_saved_at"] = datetime.now().isoformat(timespec="seconds")
     USER_CONFIG_FILE.write_text(json.dumps(cfg))
     ASSEMBLYAI_API_KEY = key
+
+
+def clear_api_key() -> None:
+    """Removes the saved key. An env var, if set, takes back over."""
+    global ASSEMBLYAI_API_KEY
+    cfg = _read_user_config()
+    cfg.pop("assemblyai_api_key", None)
+    cfg.pop("api_key_saved_at", None)
+    USER_CONFIG_FILE.write_text(json.dumps(cfg))
+    ASSEMBLYAI_API_KEY = os.environ.get("ASSEMBLYAI_API_KEY") or None
+
+
+def api_key_saved_at() -> str | None:
+    return _read_user_config().get("api_key_saved_at")
 
 
 # An env var (e.g. from .env, for development) always wins over a key saved
