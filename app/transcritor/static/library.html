@@ -79,6 +79,7 @@
     color: var(--ink-soft); flex-shrink: 0;
   }
   .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .icon-btn svg { width: 16px; height: 16px; }
   .banner {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     border: 1px solid var(--amber); border-radius: var(--radius); padding: 10px 14px;
@@ -168,18 +169,7 @@
     </div>
     <div class="topbar-controls">
       <a class="icon-btn" href="/settings" id="settingsLink">
-        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="5" fill="currentColor"/>
-          <circle cx="12" cy="12" r="2.2" fill="var(--bg)"/>
-          <rect x="10.5" y="1" width="3" height="4" rx="1" fill="currentColor"/>
-          <rect x="10.5" y="19" width="3" height="4" rx="1" fill="currentColor"/>
-          <rect x="10.5" y="1" width="3" height="4" rx="1" fill="currentColor" transform="rotate(90 12 12)"/>
-          <rect x="10.5" y="1" width="3" height="4" rx="1" fill="currentColor" transform="rotate(270 12 12)"/>
-          <rect x="10.5" y="1" width="3" height="4" rx="1" fill="currentColor" transform="rotate(45 12 12)"/>
-          <rect x="10.5" y="1" width="3" height="4" rx="1" fill="currentColor" transform="rotate(135 12 12)"/>
-          <rect x="10.5" y="1" width="3" height="4" rx="1" fill="currentColor" transform="rotate(225 12 12)"/>
-          <rect x="10.5" y="1" width="3" height="4" rx="1" fill="currentColor" transform="rotate(315 12 12)"/>
-        </svg>
+        <i data-lucide="settings" aria-hidden="true"></i>
       </a>
       <div class="segmented" id="langsw">
         <button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button>
@@ -259,6 +249,7 @@
   </section>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/lucide@1.52.0/dist/umd/lucide.js"></script>
 <script>
 const I18N = {
   pt: {
@@ -542,6 +533,7 @@ document.getElementById("form").addEventListener("submit", e => {
 
 applyI18n();
 checkSettings();
+lucide.createIcons();
 
 // Keep the local server alive while this page is open
 setInterval(() => fetch("/api/ping").catch(() => {}), 30000);
