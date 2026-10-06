@@ -1,0 +1,35 @@
+#!/bin/sh
+# Keeps main a merge-only branch: work happens on dev (or a feature branch) and
+# arrives on main through `git merge`, never through a commit made on main.
+#
+# Git runs this hook for ordinary commits but not for the commit `git merge`
+# creates on its own (that one gets pre-merge-commit), so merges pass through
+# untouched. A merge that stopped on conflicts is finished with `git commit`,
+# which does reach this hook, so MERGE_HEAD is allowed through explicitly.
+#
+# This is a local hook: it is not enforced for clones or for pushes made
+# elsewhere. Real enforcement is a branch protection rule on GitHub.
+#
+# Install:  ln -sf ../../.githooks/pre-commit .git/hooks/pre-commit
+# Override: ALLOW_MAIN_COMMIT=1 git commit ...
+
+PROTECTED="main"
+
+branch=$(git symbolic-ref --short -q HEAD) || exit 0  # detached HEAD, rebase
+[ "$branch" = "$PROTECTED" ] || exit 0
+[ -n "$ALLOW_MAIN_COMMIT" ] && exit 0
+
+git_dir=$(git rev-parse --git-dir)
+[ -e "$git_dir/MERGE_HEAD" ] && exit 0  # finishing a conflicted merge
+
+cat >&2 <<EOF
+Blocked: $PROTECTED only takes merges.
+
+  git switch dev            # or: git switch -c <feature>
+  git commit ...
+  git switch $PROTECTED
+  git merge --no-ff dev
+
+To commit here anyway: ALLOW_MAIN_COMMIT=1 git commit ...
+EOF
+exit 1
