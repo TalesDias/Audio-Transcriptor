@@ -505,20 +505,31 @@ function renderListen(turns) {
 }
 
 // --- Editing -----------------------------------------------------------
-// The edit view flattens each turn into one plain-text paragraph. Typed
-// words have no real AssemblyAI timing, so on save we interpolate each
-// word's start/end proportionally by character count across the turn's
-// time bounds (its own start, and the next turn's start as its end).
+// The edit view flattens each turn into one plain-text paragraph. Only typed
+// words lack a real AssemblyAI timing, so on save we match the edited text
+// against the original transcript and keep the real timing of every word that
+// survived the edit, interpolating only the genuinely new runs. See retime().
 
 function endsSentence(word) {
   return SENTENCE_END.some(c => word.text.endsWith(c));
+}
+
+function flatWords(turns) {
+  return turns.flatMap(t => t.sentences.flatMap(s => s.words));
 }
 
 function turnsToParagraphs(turns, fallbackEnd) {
   return turns.map((turn, i) => {
     const allWords = turn.sentences.flatMap(s => s.words);
     const lastWord = allWords[allWords.length - 1];
-    const end = i + 1 < turns.length ? turns[i + 1].start : (lastWord ? lastWord.end : fallbackEnd);
+    // Saved turns carry their own end. Turns straight from AssemblyAI don't,
+    // and there the next turn's start is the better bound: it leaves the
+    // silence after the turn available to type into. Taking it from the
+    // neighbour is only safe as a fallback - once a paragraph can be deleted,
+    // a stored end is what stops its predecessor stretching over the hole.
+    const end = turn.end != null ? turn.end
+      : i + 1 < turns.length ? turns[i + 1].start
+      : lastWord ? lastWord.end : fallbackEnd;
     return { speaker: turn.speaker, start: turn.start, end, text: allWords.map(w => w.text).join(" ") };
   });
 }
@@ -645,26 +656,140 @@ function groupSentences(allWords) {
   return sentences;
 }
 
-function interpolateTurn(speaker, start, end, text) {
-  const tokens = text.trim().split(/\s+/).filter(Boolean);
-  if (!tokens.length) return null;
-  const totalChars = tokens.reduce((n, w) => n + w.length, 0) + (tokens.length - 1);
-  const span = end - start;
-  let acc = 0;
-  const allWords = tokens.map(w => {
-    const wStart = start + span * (acc / totalChars);
-    acc += w.length;
-    const wEnd = start + span * (acc / totalChars);
-    acc += 1;
-    return { start: wStart, end: wEnd, text: w };
-  });
-  return { speaker, start, sentences: groupSentences(allWords) };
+// Punctuation and capitalisation get fixed constantly while editing, and
+// neither should stop a word from being recognised as the one it was.
+function timingKey(text) {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
+// Longest common subsequence of two key arrays, as a map from each index in
+// `a` to the index in `b` it matches, or -1. Quadratic, so it gives up on
+// absurd inputs rather than hanging; matching nothing just costs accuracy.
+function matchWords(a, b) {
+  const n = a.length, m = b.length;
+  const out = new Array(n).fill(-1);
+  if (!n || !m || n * m > 4e6) return out;
+
+  const w = m + 1;
+  const dp = new Int32Array((n + 1) * w);
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i * w + j] = a[i] === b[j]
+        ? dp[(i + 1) * w + j + 1] + 1
+        : Math.max(dp[(i + 1) * w + j], dp[i * w + j + 1]);
+    }
+  }
+  for (let i = 0, j = 0; i < n && j < m;) {
+    if (a[i] === b[j]) out[i++] = j++;
+    else if (dp[(i + 1) * w + j] >= dp[i * w + j + 1]) i++;
+    else j++;
+  }
+  return out;
+}
+
+// Spread words l..r across [t0, t1] proportionally to their character counts.
+function spread(words, l, r, t0, t1) {
+  let total = r - l;  // the spaces between them
+  for (let i = l; i <= r; i++) total += words[i].text.length;
+  let acc = 0;
+  for (let i = l; i <= r; i++) {
+    words[i].start = t0 + (t1 - t0) * (acc / total);
+    acc += words[i].text.length;
+    words[i].end = t0 + (t1 - t0) * (acc / total);
+    acc += 1;
+  }
+}
+
+// A typed word has no audio of its own, and often there is no gap to put it
+// in: in this recording "Fine." ends at 47.630 and "And" starts at 47.630.
+// Giving it zero duration means the highlight skips straight past it, so the
+// run grows to take in the words beside it and the whole group re-spreads over
+// their combined time. The neighbours give up a few hundredths, which is the
+// honest trade - the recording has no room for a word nobody said.
+const MIN_NEW_WORD = 0.06;
+
+function runWindow(words, l, r, spanStart, spanEnd) {
+  let lo = l, hi = r;
+  const bounds = () => [
+    lo > 0 ? words[lo - 1].end : spanStart,
+    hi + 1 < words.length ? words[hi + 1].start : spanEnd,
+  ];
+  let [t0, t1] = bounds();
+  while (t1 - t0 < (hi - lo + 1) * MIN_NEW_WORD && (lo > 0 || hi + 1 < words.length)) {
+    if (lo > 0) lo--;
+    if (hi + 1 < words.length) hi++;
+    [t0, t1] = bounds();
+  }
+  return { lo, hi, t0, t1: Math.max(t1, t0) };
+}
+
+// Give every token in one paragraph a timing: the original word's own if it
+// survived the edit, otherwise interpolated into the gap its neighbours leave.
+// `originals` must start at the point the previous paragraph stopped matching,
+// so that a word repeated earlier in the transcript is out of reach.
+function retimeParagraph(tokens, originals, spanStart, spanEnd) {
+  const match = matchWords(tokens.map(timingKey), originals.map(o => timingKey(o.text)));
+  const words = tokens.map(text => ({ start: null, end: null, text }));
+  let lastMatch = -1;
+  for (let i = 0; i < words.length; i++) {
+    const j = match[i];
+    if (j < 0) continue;
+    words[i].start = originals[j].start;
+    words[i].end = originals[j].end;
+    lastMatch = j;
+  }
+  for (let l = 0; l < words.length; l++) {
+    if (words[l].start !== null) continue;
+    let r = l;
+    while (r + 1 < words.length && words[r + 1].start === null) r++;
+    const { lo, hi, t0, t1 } = runWindow(words, l, r, spanStart, spanEnd);
+    spread(words, lo, hi, t0, t1);
+    l = hi;
+  }
+  return { words, lastMatch };
+}
+
+// Rebuild the turns from the editor. Timings come from the pristine AssemblyAI
+// words rather than from the previous save, so a paragraph that is deleted and
+// typed back lands on its real timings again instead of drifting further each
+// round, and an earlier bad save repairs itself on the next one.
+//
+// Originals are consumed in order through a sliding window: a paragraph can
+// only match words at or after wherever the previous paragraph stopped, which
+// keeps repeated phrases from matching the wrong occurrence.
 function buildSaveTurns() {
-  return [...editBox.children].map(wrap =>
-    interpolateTurn(wrap.dataset.speaker, +wrap.dataset.start, +wrap.dataset.end, wrap.querySelector(".turn-text").textContent)
-  ).filter(Boolean);
+  const originals = flatWords(meta.transcript.turns || []);
+  const built = [];
+  let cursor = 0;
+
+  for (const wrap of editBox.children) {
+    const tokens = wrap.querySelector(".turn-text").textContent.trim().split(/\s+/).filter(Boolean);
+    if (!tokens.length) continue;
+    const spanStart = +wrap.dataset.start;
+    const spanEnd = Math.max(+wrap.dataset.end, spanStart);
+    const pool = originals.slice(cursor, cursor + tokens.length * 3 + 50);
+    const { words, lastMatch } = retimeParagraph(tokens, pool, spanStart, spanEnd);
+    if (lastMatch >= 0) cursor += lastMatch + 1;
+    built.push({ speaker: wrap.dataset.speaker, spanEnd, words });
+  }
+
+  // The highlight binary-searches this, so starts have to come out sorted no
+  // matter how the paragraphs were cut up and rejoined.
+  let floor = -Infinity;
+  for (const b of built) {
+    for (const word of b.words) {
+      if (word.start < floor) word.start = floor;
+      if (word.end < word.start) word.end = word.start;
+      floor = word.start;
+    }
+  }
+
+  return built.map(b => ({
+    speaker: b.speaker,
+    start: b.words[0].start,
+    end: Math.max(b.spanEnd, b.words[b.words.length - 1].end),
+    sentences: groupSentences(b.words),
+  }));
 }
 
 // Takes the turns so a caller leaving the editor can hand over what it read
