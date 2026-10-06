@@ -125,6 +125,27 @@
   .cur-sentence { background: var(--highlight); border-radius: 2px; }
   .cur-word { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; font-weight: 600; }
 
+  .turn-text { white-space: pre-wrap; border-radius: 2px; padding: 2px 4px; margin: 0 0 0 -4px; outline: none; }
+  .turn-text:focus { background: var(--highlight); }
+
+  dialog {
+    background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: var(--radius);
+    padding: 22px 24px; max-width: 360px; width: 90vw; font: 15px/1.5 var(--font-sans);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .45); }
+  dialog h2 { margin: 0 0 18px; font-family: var(--font-serif); font-weight: 600; font-size: 18px; }
+  dialog form { display: grid; gap: 16px; }
+  dialog label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-soft); }
+  dialog input[type=text], dialog select {
+    font: inherit; font-family: var(--font-sans); color: var(--ink);
+    background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius);
+    padding: 7px 9px;
+  }
+  .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+  .dialog-actions button { font: 600 13px var(--font-sans); padding: 8px 16px; border-radius: var(--radius); cursor: pointer; }
+  .dialog-actions .cancel { background: none; border: 1px solid var(--rule); color: var(--ink); }
+  .dialog-actions .primary { background: var(--accent); border: none; color: var(--accent-ink); }
+
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 </style>
 </head>
@@ -132,6 +153,9 @@
 <header>
   <a class="back" href="/" id="backLink"></a>
   <h1 id="title">…</h1>
+  <div class="segmented" id="modesw" hidden>
+    <button type="button" data-mode="original" class="on"></button><button type="button" data-mode="edit"></button>
+  </div>
   <span class="exports">
     <span id="exportsLabel"></span>
     <a id="exp-docx" href="#"><i data-lucide="file-text" aria-hidden="true"></i> Word</a><a id="exp-txt" href="#"><i data-lucide="file" aria-hidden="true"></i> <span id="exp-txt-label"></span></a><a id="exp-srt" href="#"><i data-lucide="captions" aria-hidden="true"></i> <span id="exp-srt-label"></span></a>
@@ -157,7 +181,26 @@
   <span id="shortcutRename"></span>
 </div>
 <div class="box" id="box"></div>
+<div class="box" id="editBox" hidden></div>
 <audio id="audio" preload="auto"></audio>
+
+<dialog id="speakerDialog">
+  <h2 id="speakerDialogTitle"></h2>
+  <form id="speakerForm">
+    <label id="speakerReassignRow" hidden>
+      <span id="speakerReassignLabelTxt"></span>
+      <select id="speakerReassignSelect"></select>
+    </label>
+    <label>
+      <span id="speakerNameLabelTxt"></span>
+      <input type="text" id="speakerNameInput">
+    </label>
+    <div class="dialog-actions">
+      <button type="button" class="cancel" id="speakerCancelBtn"></button>
+      <button type="button" class="primary" id="speakerSaveBtn"></button>
+    </div>
+  </form>
+</dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/lucide@1.52.0/dist/umd/lucide.js"></script>
 <script>
@@ -173,18 +216,26 @@ const I18N = {
     playTooltip: "Tocar/pausar (Espaço)",
     keySpace: "Espaço",
     renamePromptTitle: "Novo título:",
+    modeOriginal: "Original",
+    modeEdit: "Editar",
     exportsLabel: "Exportar",
     exportWord: "Word",
     exportText: "Texto",
     exportSrt: "Legenda",
     shortcutPlayPause: "tocar/pausar",
     shortcutSkip: "avançar 3s",
-    shortcutRename: "Clique no nome de um falante para renomeá-lo",
-    renamePromptSpeaker: name => `Novo nome para "${name}":`,
+    shortcutRename: "Clique no nome de um falante para editá-lo",
     errAudio: "Este navegador não conseguiu tocar o áudio.",
     errNotFound: "Transcrição não encontrada.",
     errNotReady: "A transcrição ainda não está pronta.",
     speakerFallback: n => `Falante ${n}`,
+    cancel: "Cancelar",
+    save: "Salvar",
+    speakerDialogTitle: "Editar falante",
+    speakerReassignLabel: "Falante",
+    speakerNameLabel: "Nome",
+    speakerNewOption: "+ Novo falante",
+    speakerNamePlaceholder: "Nome (opcional)",
   },
   en: {
     backLink: "← Transcriptions",
@@ -192,18 +243,26 @@ const I18N = {
     playTooltip: "Play/pause (Space)",
     keySpace: "Space",
     renamePromptTitle: "New title:",
+    modeOriginal: "Original",
+    modeEdit: "Edit",
     exportsLabel: "Export",
     exportWord: "Word",
     exportText: "Text",
     exportSrt: "Subtitles",
     shortcutPlayPause: "play/pause",
     shortcutSkip: "skip 3s",
-    shortcutRename: "Click a speaker's name to rename them",
-    renamePromptSpeaker: name => `New name for "${name}":`,
+    shortcutRename: "Click a speaker's name to edit them",
     errAudio: "This browser couldn't play the audio.",
     errNotFound: "Transcription not found.",
     errNotReady: "The transcription isn't ready yet.",
     speakerFallback: n => `Speaker ${n}`,
+    cancel: "Cancel",
+    save: "Save",
+    speakerDialogTitle: "Edit speaker",
+    speakerReassignLabel: "Speaker",
+    speakerNameLabel: "Name",
+    speakerNewOption: "+ New speaker",
+    speakerNamePlaceholder: "Name (optional)",
   },
   es: {
     backLink: "← Transcripciones",
@@ -211,18 +270,26 @@ const I18N = {
     playTooltip: "Reproducir/pausar (Espacio)",
     keySpace: "Espacio",
     renamePromptTitle: "Nuevo título:",
+    modeOriginal: "Original",
+    modeEdit: "Editar",
     exportsLabel: "Exportar",
     exportWord: "Word",
     exportText: "Texto",
     exportSrt: "Subtítulos",
     shortcutPlayPause: "reproducir/pausar",
     shortcutSkip: "avanzar 3s",
-    shortcutRename: "Haz clic en el nombre de un hablante para renombrarlo",
-    renamePromptSpeaker: name => `Nuevo nombre para "${name}":`,
+    shortcutRename: "Haz clic en el nombre de un hablante para editarlo",
     errAudio: "Este navegador no pudo reproducir el audio.",
     errNotFound: "Transcripción no encontrada.",
     errNotReady: "La transcripción aún no está lista.",
     speakerFallback: n => `Hablante ${n}`,
+    cancel: "Cancelar",
+    save: "Guardar",
+    speakerDialogTitle: "Editar hablante",
+    speakerReassignLabel: "Hablante",
+    speakerNameLabel: "Nombre",
+    speakerNewOption: "+ Nuevo hablante",
+    speakerNamePlaceholder: "Nombre (opcional)",
   },
 };
 
@@ -244,12 +311,20 @@ function applyChrome() {
   titleEl.title = t("titleTooltip");
   playBtn.title = t("playTooltip");
   document.getElementById("keySpace").textContent = t("keySpace");
+  modeSw.querySelector('[data-mode="original"]').textContent = t("modeOriginal");
+  modeSw.querySelector('[data-mode="edit"]').textContent = t("modeEdit");
   document.getElementById("exportsLabel").textContent = t("exportsLabel");
   document.getElementById("exp-txt-label").textContent = t("exportText");
   document.getElementById("exp-srt-label").textContent = t("exportSrt");
   document.getElementById("shortcutPlayPause").textContent = t("shortcutPlayPause");
   document.getElementById("shortcutSkip").textContent = t("shortcutSkip");
   document.getElementById("shortcutRename").textContent = t("shortcutRename");
+  document.getElementById("speakerDialogTitle").textContent = t("speakerDialogTitle");
+  document.getElementById("speakerReassignLabelTxt").textContent = t("speakerReassignLabel");
+  document.getElementById("speakerNameLabelTxt").textContent = t("speakerNameLabel");
+  document.getElementById("speakerNameInput").placeholder = t("speakerNamePlaceholder");
+  document.getElementById("speakerCancelBtn").textContent = t("cancel");
+  document.getElementById("speakerSaveBtn").textContent = t("save");
   document.querySelectorAll("#langsw button").forEach(b => b.classList.toggle("on", b.dataset.lang === uiLang));
 }
 
@@ -268,11 +343,15 @@ const playBtn = document.getElementById("play");
 const timeEl = document.getElementById("time");
 const statusEl = document.getElementById("status");
 const box = document.getElementById("box");
+const editBox = document.getElementById("editBox");
+const modeSw = document.getElementById("modesw");
 const titleEl = document.getElementById("title");
 
 let meta = null;
-const sentences = [], words = [], tags = [];
+const sentences = [], words = [], tags = [], editTags = [];
 let curS = -1, curW = -1, dragging = false;
+let viewMode = "original", saveTimer = null;
+const SENTENCE_END = [".", "?", "!", "…"];
 
 const fmt = s => {
   s = Math.floor(s);
@@ -293,6 +372,7 @@ function findIndex(items, t) {
 
 function renderTags() {
   for (const { nameEl, turn } of tags) nameEl.textContent = speakerName(turn.speaker);
+  for (const { nameEl, speaker } of editTags) nameEl.textContent = speakerName(speaker);
 }
 
 async function save(changes) {
@@ -301,6 +381,81 @@ async function save(changes) {
   });
   Object.assign(meta, await r.json());
 }
+
+const speakerDialog = document.getElementById("speakerDialog");
+const speakerReassignRow = document.getElementById("speakerReassignRow");
+const speakerReassignSelect = document.getElementById("speakerReassignSelect");
+const speakerNameInput = document.getElementById("speakerNameInput");
+const NEW_SPEAKER = "__new__";
+let speakerModalTarget = null;
+
+function nextSpeakerLabel() {
+  const used = new Set(meta.speakers || []);
+  for (const c of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") if (!used.has(c)) return c;
+  let i = 1;
+  while (used.has(`Speaker${i}`)) i++;
+  return `Speaker${i}`;
+}
+
+// target is { wrap, nameEl } to allow reassigning that paragraph to a
+// different (or brand new) speaker, or null for a plain rename (used in the
+// read-only Original view, which must never change who said what).
+function openSpeakerModal(speaker, target) {
+  speakerModalTarget = target;
+  speakerDialog.dataset.originalSpeaker = speaker;
+  speakerReassignRow.hidden = !target;
+  if (target) {
+    speakerReassignSelect.innerHTML = "";
+    for (const sp of meta.speakers || []) {
+      const opt = document.createElement("option");
+      opt.value = sp;
+      opt.textContent = speakerName(sp);
+      opt.selected = sp === speaker;
+      speakerReassignSelect.append(opt);
+    }
+    const newOpt = document.createElement("option");
+    newOpt.value = NEW_SPEAKER;
+    newOpt.textContent = t("speakerNewOption");
+    speakerReassignSelect.append(newOpt);
+  }
+  speakerNameInput.value = meta.speaker_names?.[speaker] || "";
+  speakerDialog.showModal();
+  speakerNameInput.focus();
+}
+
+speakerReassignSelect.addEventListener("change", () => {
+  const val = speakerReassignSelect.value;
+  speakerNameInput.value = val === NEW_SPEAKER ? "" : (meta.speaker_names?.[val] || "");
+});
+
+document.getElementById("speakerCancelBtn").addEventListener("click", () => speakerDialog.close());
+
+document.getElementById("speakerSaveBtn").addEventListener("click", async () => {
+  const original = speakerDialog.dataset.originalSpeaker;
+  const target = speakerModalTarget;
+  let chosen = original, isNew = false;
+  if (target) {
+    const val = speakerReassignSelect.value;
+    if (val === NEW_SPEAKER) { chosen = nextSpeakerLabel(); isNew = true; }
+    else chosen = val;
+  }
+
+  const name = speakerNameInput.value.trim();
+  const changes = {};
+  if (isNew) changes.speakers = [...(meta.speakers || []), chosen];
+  if (name) changes.speaker_names = { ...meta.speaker_names, [chosen]: name };
+  if (Object.keys(changes).length) await save(changes);
+
+  if (target && chosen !== original) {
+    target.wrap.dataset.speaker = chosen;
+    target.wrap.style.setProperty("--turn-color", COLORS[(meta.speakers || []).indexOf(chosen) % COLORS.length]);
+    const tagEntry = editTags.find(x => x.nameEl === target.nameEl);
+    if (tagEntry) tagEntry.speaker = chosen;
+    scheduleSave();
+  }
+  renderTags();
+  speakerDialog.close();
+});
 
 function render(transcript) {
   const speakers = meta.speakers || [];
@@ -313,12 +468,7 @@ function render(transcript) {
     head.className = "turn-head";
     const nameEl = document.createElement("span");
     nameEl.className = "speaker-name";
-    nameEl.addEventListener("click", async () => {
-      const name = prompt(t("renamePromptSpeaker")(speakerName(turn.speaker)), meta.speaker_names?.[turn.speaker] || "");
-      if (name === null) return;
-      await save({ speaker_names: { ...meta.speaker_names, [turn.speaker]: name } });
-      renderTags();
-    });
+    nameEl.addEventListener("click", () => openSpeakerModal(turn.speaker, null));
     const timeEl2 = document.createElement("span");
     timeEl2.className = "turn-time";
     timeEl2.textContent = fmt(turn.start);
@@ -341,6 +491,185 @@ function render(transcript) {
   }
   renderTags();
 }
+
+// --- Editing -----------------------------------------------------------
+// The edit view flattens each turn into one plain-text paragraph. Typed
+// words have no real AssemblyAI timing, so on save we interpolate each
+// word's start/end proportionally by character count across the turn's
+// time bounds (its own start, and the next turn's start as its end).
+
+function endsSentence(word) {
+  return SENTENCE_END.some(c => word.text.endsWith(c));
+}
+
+function turnsToParagraphs(turns, fallbackEnd) {
+  return turns.map((turn, i) => {
+    const allWords = turn.sentences.flatMap(s => s.words);
+    const lastWord = allWords[allWords.length - 1];
+    const end = i + 1 < turns.length ? turns[i + 1].start : (lastWord ? lastWord.end : fallbackEnd);
+    return { speaker: turn.speaker, start: turn.start, end, text: allWords.map(w => w.text).join(" ") };
+  });
+}
+
+function caretOffset(el) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return el.textContent.length;
+  const range = sel.getRangeAt(0).cloneRange();
+  range.selectNodeContents(el);
+  range.setEnd(sel.anchorNode, sel.anchorOffset);
+  return range.toString().length;
+}
+
+function setCaret(el, offset) {
+  const sel = window.getSelection();
+  const range = document.createRange();
+  const node = el.firstChild;
+  range.setStart(node || el, node ? Math.min(offset, node.length) : 0);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function makeParagraph(speaker, start, end, text) {
+  const speakers = meta.speakers || [];
+  const wrap = document.createElement("div");
+  wrap.className = "turn";
+  wrap.style.setProperty("--turn-color", COLORS[speakers.indexOf(speaker) % COLORS.length]);
+  wrap.dataset.speaker = speaker;
+  wrap.dataset.start = start;
+  wrap.dataset.end = end;
+
+  const head = document.createElement("div");
+  head.className = "turn-head";
+  const nameEl = document.createElement("span");
+  nameEl.className = "speaker-name";
+  nameEl.addEventListener("click", () => openSpeakerModal(wrap.dataset.speaker, { wrap, nameEl }));
+  head.append(nameEl);
+  editTags.push({ nameEl, speaker });
+
+  const textEl = document.createElement("div");
+  textEl.className = "turn-text";
+  textEl.contentEditable = "true";
+  textEl.textContent = text;
+  textEl.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); splitParagraph(wrap, textEl); }
+  });
+  textEl.addEventListener("input", scheduleSave);
+
+  wrap.append(head, textEl);
+  return wrap;
+}
+
+function renderEdit(turns) {
+  editBox.innerHTML = "";
+  editTags.length = 0;
+  for (const { speaker, start, end, text } of turnsToParagraphs(turns, meta.duration || 0)) {
+    editBox.append(makeParagraph(speaker, start, end, text));
+  }
+  renderTags();
+}
+
+function splitParagraph(wrap, textEl) {
+  const offset = caretOffset(textEl);
+  const text = textEl.textContent;
+  const before = text.slice(0, offset).replace(/[ \t]+$/, "");
+  const after = text.slice(offset).replace(/^[ \t]+/, "");
+  const start = +wrap.dataset.start, end = +wrap.dataset.end;
+  const split = start + (end - start) * (before.length / Math.max(1, before.length + after.length));
+
+  textEl.textContent = before;
+  wrap.dataset.end = split;
+
+  const newWrap = makeParagraph(wrap.dataset.speaker, split, end, after);
+  wrap.after(newWrap);
+  newWrap.querySelector(".turn-text").focus();
+  setCaret(newWrap.querySelector(".turn-text"), 0);
+  scheduleSave();
+}
+
+function groupSentences(allWords) {
+  const sentences = [];
+  for (const w of allWords) {
+    const last = sentences.length ? sentences[sentences.length - 1] : null;
+    if (!last || endsSentence(last.words[last.words.length - 1])) sentences.push({ start: w.start, end: w.end, words: [] });
+    const s = sentences[sentences.length - 1];
+    s.words.push(w);
+    s.end = w.end;
+  }
+  return sentences;
+}
+
+function interpolateTurn(speaker, start, end, text) {
+  const tokens = text.trim().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return null;
+  const totalChars = tokens.reduce((n, w) => n + w.length, 0) + (tokens.length - 1);
+  const span = end - start;
+  let acc = 0;
+  const allWords = tokens.map(w => {
+    const wStart = start + span * (acc / totalChars);
+    acc += w.length;
+    const wEnd = start + span * (acc / totalChars);
+    acc += 1;
+    return { start: wStart, end: wEnd, text: w };
+  });
+  return { speaker, start, sentences: groupSentences(allWords) };
+}
+
+function buildSaveTurns() {
+  return [...editBox.children].map(wrap =>
+    interpolateTurn(wrap.dataset.speaker, +wrap.dataset.start, +wrap.dataset.end, wrap.querySelector(".turn-text").textContent)
+  ).filter(Boolean);
+}
+
+async function doSaveEdits() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  const turns = buildSaveTurns();
+  const r = await fetch(`/api/transcripts/${ID}/edited`, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ turns }),
+  });
+  if (r.ok) meta.transcript.edited_turns = turns;
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doSaveEdits, 800);
+}
+
+function updateExportLinks() {
+  const suffix = viewMode === "edit" ? "?v=edited" : "";
+  for (const fmtName of ["docx", "txt", "srt"]) {
+    document.getElementById(`exp-${fmtName}`).href = `/api/transcripts/${ID}/export.${fmtName}${suffix}`;
+  }
+}
+
+function setMode(mode) {
+  if (mode === viewMode) return;
+  if (viewMode === "edit" && saveTimer) doSaveEdits();
+  viewMode = mode;
+  modeSw.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+  box.hidden = mode !== "original";
+  editBox.hidden = mode !== "edit";
+  if (mode === "edit") renderEdit(meta.transcript.edited_turns || meta.transcript.turns);
+  updateExportLinks();
+}
+
+modeSw.addEventListener("click", e => {
+  const btn = e.target.closest("button[data-mode]");
+  if (btn) setMode(btn.dataset.mode);
+});
+
+// If an export is clicked while an edit hasn't been autosaved yet, flush it
+// first so the download reflects the latest text, not the last saved one.
+document.querySelector(".exports").addEventListener("click", async e => {
+  const a = e.target.closest("a[id^='exp-']");
+  if (!a || viewMode !== "edit" || !saveTimer) return;
+  e.preventDefault();
+  await doSaveEdits();
+  location.href = a.href;
+});
+
+window.addEventListener("beforeunload", () => { if (saveTimer) doSaveEdits(); });
 
 function setCurrent(list, oldIdx, newIdx, cls) {
   if (oldIdx === newIdx) return false;
@@ -425,11 +754,10 @@ async function load() {
   const data = await r.json();
   meta = data;
   titleEl.textContent = document.title = meta.title;
-  for (const fmtName of ["docx", "txt", "srt"]) {
-    document.getElementById(`exp-${fmtName}`).href = `/api/transcripts/${ID}/export.${fmtName}`;
-  }
-  if (!data.transcript) { statusEl.textContent = t("errNotReady"); return; }
+  if (!data.transcript) { statusEl.textContent = t("errNotReady"); updateExportLinks(); return; }
   render(data.transcript);
+  modeSw.hidden = false;
+  updateExportLinks();
   audio.src = `/api/transcripts/${ID}/audio`;
 }
 

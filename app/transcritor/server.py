@@ -77,7 +77,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         global last_ping
-        path, _ = self._route()
+        path, query = self._route()
 
         if path == "/api/ping":
             last_ping = time.monotonic()
@@ -105,7 +105,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._audio(item_id)
         m = re.match(rf"^/api/transcripts/{item_id}/export\.(\w+)$", path)
         if m and m.group(1) in export.FORMATS:
-            return self._export(item_id, m.group(1))
+            return self._export(item_id, m.group(1), (query.get("v") or [""])[0])
         self._error(404, "Não encontrado")
 
     do_HEAD = do_GET
@@ -157,6 +157,17 @@ class Handler(BaseHTTPRequestHandler):
         transcribe.start(item_id)
         self._json({"id": item_id}, 201)
 
+    def do_PUT(self):
+        path, _ = self._route()
+        item_id = self._item_id(path)
+        if item_id is None or path != f"/api/transcripts/{item_id}/edited":
+            return self._error(404, "Não encontrado")
+        turns = self._read_json().get("turns")
+        if not isinstance(turns, list):
+            return self._error(400, "Corpo inválido")
+        store.update_transcript(item_id, edited_turns=turns)
+        self._json({"ok": True})
+
     def do_PATCH(self):
         path, _ = self._route()
         item_id = self._item_id(path)
@@ -168,6 +179,8 @@ class Handler(BaseHTTPRequestHandler):
             changes["title"] = body["title"].strip()
         if isinstance(body.get("speaker_names"), dict):
             changes["speaker_names"] = {str(k): str(v).strip() for k, v in body["speaker_names"].items() if str(v).strip()}
+        if isinstance(body.get("speakers"), list):
+            changes["speakers"] = sorted({str(s).strip() for s in body["speakers"] if str(s).strip()})
         self._json({"id": item_id, **store.update_meta(item_id, **changes)})
 
     def do_DELETE(self):
@@ -196,14 +209,15 @@ class Handler(BaseHTTPRequestHandler):
     def _static(self, name: str):
         self._send(200, (STATIC_DIR / name).read_bytes(), "text/html; charset=utf-8")
 
-    def _export(self, item_id: str, fmt: str):
+    def _export(self, item_id: str, fmt: str, version: str):
         data = store.read_transcript(item_id)
         if data is None:
             return self._error(409, "Transcrição ainda não está pronta")
+        turns = data.get("edited_turns") if version == "edited" and data.get("edited_turns") else data["turns"]
         meta = store.read_meta(item_id)
         render, content_type = export.FORMATS[fmt]
         filename = urllib.parse.quote(f"{meta['title']}.{fmt}")
-        self._send(200, render(meta, data), content_type,
+        self._send(200, render(meta, {"turns": turns}), content_type,
                    {"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"})
 
     def _audio(self, item_id: str):

@@ -72,6 +72,14 @@ def write_transcript(item_id: str, data: dict):
     _write_json(item_dir(item_id) / "transcript.json", data)
 
 
+def update_transcript(item_id: str, **changes) -> dict:
+    with _lock:
+        data = read_transcript(item_id) or {}
+        data.update(changes)
+        _write_json(item_dir(item_id) / "transcript.json", data)
+        return data
+
+
 def audio_path(item_id: str) -> Path:
     return item_dir(item_id) / read_meta(item_id)["audio_file"]
 
