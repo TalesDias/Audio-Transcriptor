@@ -6,12 +6,15 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Needed to create the release and its tag.
 permissions:
-  contents: read
+  contents: write
 
+# Queue rather than cancel: every merge is supposed to get its own release, so
+# a build that is already running must not be dropped when the next one lands.
 concurrency:
   group: appimage-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -32,8 +35,28 @@ jobs:
             | grep -q libmp3lame
           test -x squashfs-root/usr/bin/transcritor
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Transcritor-x86_64-AppImage
-          path: dist/Transcritor-x86_64.AppImage
-          if-no-files-found: error
+      # Tag is the version from pyproject.toml plus the run number, so every
+      # merge gets its own release without anyone having to bump anything.
+      - name: Work out the tag
+        id: tag
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)
+          test -n "$version"
+          echo "tag=v$version-build.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      # gh is preinstalled on the runner, so this needs no third-party action.
+      # Re-running a build reuses its release instead of failing on the tag.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          file=dist/Transcritor-x86_64.AppImage
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$file" --clobber
+          else
+            gh release create "$TAG" "$file" \
+              --target "$GITHUB_SHA" \
+              --title "Transcritor $TAG" \
+              --generate-notes
+          fi
