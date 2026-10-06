@@ -154,7 +154,7 @@
   <a class="back" href="/" id="backLink"></a>
   <h1 id="title">…</h1>
   <div class="segmented" id="modesw" hidden>
-    <button type="button" data-mode="original" class="on"></button><button type="button" data-mode="edit"></button>
+    <button type="button" data-mode="listen" class="on"></button><button type="button" data-mode="edit"></button>
   </div>
   <span class="exports">
     <span id="exportsLabel"></span>
@@ -216,7 +216,7 @@ const I18N = {
     playTooltip: "Tocar/pausar (Espaço)",
     keySpace: "Espaço",
     renamePromptTitle: "Novo título:",
-    modeOriginal: "Original",
+    modeListen: "Ouvir",
     modeEdit: "Editar",
     exportsLabel: "Exportar",
     exportWord: "Word",
@@ -243,7 +243,7 @@ const I18N = {
     playTooltip: "Play/pause (Space)",
     keySpace: "Space",
     renamePromptTitle: "New title:",
-    modeOriginal: "Original",
+    modeListen: "Listen",
     modeEdit: "Edit",
     exportsLabel: "Export",
     exportWord: "Word",
@@ -270,7 +270,7 @@ const I18N = {
     playTooltip: "Reproducir/pausar (Espacio)",
     keySpace: "Espacio",
     renamePromptTitle: "Nuevo título:",
-    modeOriginal: "Original",
+    modeListen: "Escuchar",
     modeEdit: "Editar",
     exportsLabel: "Exportar",
     exportWord: "Word",
@@ -311,7 +311,7 @@ function applyChrome() {
   titleEl.title = t("titleTooltip");
   playBtn.title = t("playTooltip");
   document.getElementById("keySpace").textContent = t("keySpace");
-  modeSw.querySelector('[data-mode="original"]').textContent = t("modeOriginal");
+  modeSw.querySelector('[data-mode="listen"]').textContent = t("modeListen");
   modeSw.querySelector('[data-mode="edit"]').textContent = t("modeEdit");
   document.getElementById("exportsLabel").textContent = t("exportsLabel");
   document.getElementById("exp-txt-label").textContent = t("exportText");
@@ -350,7 +350,7 @@ const titleEl = document.getElementById("title");
 let meta = null;
 const sentences = [], words = [], tags = [], editTags = [];
 let curS = -1, curW = -1, dragging = false;
-let viewMode = "original", saveTimer = null;
+let viewMode = "listen", saveTimer = null;
 const SENTENCE_END = [".", "?", "!", "…"];
 
 const fmt = s => {
@@ -457,9 +457,21 @@ document.getElementById("speakerSaveBtn").addEventListener("click", async () => 
   speakerDialog.close();
 });
 
-function render(transcript) {
+// The turns both views work from. The original stays on disk untouched as the
+// pristine copy, but once there are edits they're what the user is working
+// with, so that's what gets shown and played.
+function currentTurns() {
+  return meta.transcript.edited_turns || meta.transcript.turns;
+}
+
+// Re-runnable: the listen view is rebuilt whenever we come back from editing,
+// so it has to drop the previous nodes and the index built over them.
+function renderListen(turns) {
+  box.innerHTML = "";
+  words.length = sentences.length = tags.length = 0;
+  curS = curW = -1;
   const speakers = meta.speakers || [];
-  for (const turn of transcript.turns) {
+  for (const turn of turns) {
     const p = document.createElement("p");
     p.className = "turn";
     p.style.setProperty("--turn-color", COLORS[speakers.indexOf(turn.speaker) % COLORS.length]);
@@ -553,6 +565,12 @@ function makeParagraph(speaker, start, end, text) {
   textEl.textContent = text;
   textEl.addEventListener("keydown", e => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); splitParagraph(wrap, textEl); }
+    // Backspace with the caret at the very start has nothing to delete inside
+    // this paragraph, so it undoes a split instead - the mirror of Enter.
+    else if (e.key === "Backspace" && wrap.previousElementSibling && caretAtStart(textEl)) {
+      e.preventDefault();
+      mergeWithPrevious(wrap, textEl);
+    }
   });
   textEl.addEventListener("input", scheduleSave);
 
@@ -584,6 +602,34 @@ function splitParagraph(wrap, textEl) {
   wrap.after(newWrap);
   newWrap.querySelector(".turn-text").focus();
   setCaret(newWrap.querySelector(".turn-text"), 0);
+  scheduleSave();
+}
+
+function caretAtStart(el) {
+  const sel = window.getSelection();
+  return sel.isCollapsed && caretOffset(el) === 0;
+}
+
+// Fold this paragraph into the one above: the text joins on, the time bounds
+// widen to cover both, and the merged paragraph keeps the earlier speaker -
+// which is what makes this the tool for fixing a turn the diarizer split in
+// two, as well as for undoing an accidental Enter.
+function mergeWithPrevious(wrap, textEl) {
+  const prev = wrap.previousElementSibling;
+  const prevText = prev.querySelector(".turn-text");
+  const before = prevText.textContent.replace(/\s+$/, "");
+  const after = textEl.textContent.replace(/^\s+/, "");
+  const gap = before && after ? " " : "";
+
+  prevText.textContent = before + gap + after;
+  prev.dataset.end = wrap.dataset.end;
+
+  const i = editTags.findIndex(x => x.nameEl === wrap.querySelector(".speaker-name"));
+  if (i >= 0) editTags.splice(i, 1);
+  wrap.remove();
+
+  prevText.focus();
+  setCaret(prevText, before.length + gap.length);
   scheduleSave();
 }
 
@@ -621,37 +667,44 @@ function buildSaveTurns() {
   ).filter(Boolean);
 }
 
-async function doSaveEdits() {
+// Takes the turns so a caller leaving the editor can hand over what it read
+// out of the DOM, rather than this re-deriving it after the editor is gone.
+async function doSaveEdits(turns) {
   clearTimeout(saveTimer);
   saveTimer = null;
-  const turns = buildSaveTurns();
-  const r = await fetch(`/api/transcripts/${ID}/edited`, {
+  turns = turns || buildSaveTurns();
+  meta.transcript.edited_turns = turns;
+  await fetch(`/api/transcripts/${ID}/edited`, {
     method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ turns }),
   });
-  if (r.ok) meta.transcript.edited_turns = turns;
 }
 
 function scheduleSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(doSaveEdits, 800);
+  saveTimer = setTimeout(() => doSaveEdits(), 800);
 }
 
 function updateExportLinks() {
-  const suffix = viewMode === "edit" ? "?v=edited" : "";
+  // Both views show the edited text, so exports always follow it. The server
+  // falls back to the original when there are no edits yet.
   for (const fmtName of ["docx", "txt", "srt"]) {
-    document.getElementById(`exp-${fmtName}`).href = `/api/transcripts/${ID}/export.${fmtName}${suffix}`;
+    document.getElementById(`exp-${fmtName}`).href = `/api/transcripts/${ID}/export.${fmtName}?v=edited`;
   }
 }
 
 function setMode(mode) {
   if (mode === viewMode) return;
-  if (viewMode === "edit" && saveTimer) doSaveEdits();
+  if (viewMode === "edit") {
+    // Read the editor before tearing it down, so the listen view rebuilds
+    // from the current text instead of waiting on the save round-trip.
+    doSaveEdits(buildSaveTurns());
+  }
   viewMode = mode;
   modeSw.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
-  box.hidden = mode !== "original";
+  box.hidden = mode !== "listen";
   editBox.hidden = mode !== "edit";
-  if (mode === "edit") renderEdit(meta.transcript.edited_turns || meta.transcript.turns);
-  updateExportLinks();
+  if (mode === "edit") renderEdit(currentTurns());
+  else { renderListen(currentTurns()); update(); }
 }
 
 modeSw.addEventListener("click", e => {
@@ -755,7 +808,7 @@ async function load() {
   meta = data;
   titleEl.textContent = document.title = meta.title;
   if (!data.transcript) { statusEl.textContent = t("errNotReady"); updateExportLinks(); return; }
-  render(data.transcript);
+  renderListen(currentTurns());
   modeSw.hidden = false;
   updateExportLinks();
   audio.src = `/api/transcripts/${ID}/audio`;
