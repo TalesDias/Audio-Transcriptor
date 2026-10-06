@@ -7,6 +7,7 @@ import urllib.request
 
 import assemblyai as aai
 
+from . import audioprep
 from . import config as appconfig
 from . import store
 from .config import SPEECH_MODELS
@@ -92,6 +93,11 @@ def _run(item_id: str):
             transcript = aai.Transcript.get_by_id(meta["assemblyai_id"])
         else:
             store.update_meta(item_id, status="uploading")
+            # Do this before submitting, so the timings AssemblyAI returns
+            # describe the same file the browser will play back.
+            normalized = audioprep.ensure_seekable(store.audio_path(item_id))
+            if normalized:
+                store.update_meta(item_id, audio_normalized=normalized)
             language = meta.get("language") or None
             config = aai.TranscriptionConfig(
                 speech_models=SPEECH_MODELS,
