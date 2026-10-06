@@ -13,6 +13,13 @@ from .config import APP_NAME
 
 STATIC_DIR = Path(__file__).parent / "static"
 CHUNK = 1 << 20
+# Cap how much an open-ended Range request ("bytes=N-") gets in one response.
+# Browsers don't reliably cancel the previous in-flight request when the user
+# seeks again, so without a cap every seek leaves another transfer of the whole
+# rest of the file running in the background, and they pile up competing for
+# bandwidth with whichever request is actually driving playback. The browser
+# re-requests the continuation as it needs it.
+MAX_OPEN_RANGE = 4 << 20
 
 last_ping = time.monotonic()
 
@@ -229,7 +236,7 @@ class Handler(BaseHTTPRequestHandler):
         if m and (m.group(1) or m.group(2)):
             if m.group(1):
                 start = int(m.group(1))
-                end = min(int(m.group(2)), size - 1) if m.group(2) else size - 1
+                end = min(int(m.group(2)), size - 1) if m.group(2) else min(size - 1, start + MAX_OPEN_RANGE - 1)
             else:
                 start = max(size - int(m.group(2)), 0)
             if start > end:
