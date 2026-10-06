@@ -787,8 +787,19 @@ for (const r of SPEEDS) {
   speedsEl.append(b);
 }
 
+// Space and the arrow keys drive playback, but only when the keystroke isn't
+// meant for something else: a focused control, or text being typed in the
+// editor or the speaker dialog.
+function typingTarget(el) {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = el.tagName;
+  return tag === "BUTTON" || tag === "TEXTAREA" || tag === "SELECT"
+    || (tag === "INPUT" && el.type !== "range");
+}
+
 document.addEventListener("keydown", e => {
-  if (e.target.tagName === "BUTTON" || e.target.tagName === "INPUT" && e.target.type !== "range") return;
+  if (typingTarget(e.target)) return;
   if (e.code === "Space") { e.preventDefault(); togglePlay(); }
   else if (e.code === "ArrowLeft") { e.preventDefault(); skip(-SKIP); }
   else if (e.code === "ArrowRight") { e.preventDefault(); skip(SKIP); }
