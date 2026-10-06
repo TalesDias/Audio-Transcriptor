@@ -1,0 +1,39 @@
+name: AppImage
+
+# main only takes merges, so every push here is a merge landing.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: appimage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Builds in a Debian 11 container, so the runner image only needs Docker.
+      - name: Build the AppImage
+        run: sh app/packaging/build-appimage.sh
+
+      - name: Check it starts and carries its own ffmpeg
+        run: |
+          chmod +x dist/Transcritor-x86_64.AppImage
+          dist/Transcritor-x86_64.AppImage --appimage-extract >/dev/null
+          squashfs-root/usr/bin/ffmpeg -hide_banner -version | head -1
+          squashfs-root/usr/bin/ffmpeg -hide_banner -encoders \
+            | grep -q libmp3lame
+          test -x squashfs-root/usr/bin/transcritor
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Transcritor-x86_64-AppImage
+          path: dist/Transcritor-x86_64.AppImage
+          if-no-files-found: error
